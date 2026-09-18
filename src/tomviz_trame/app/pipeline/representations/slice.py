@@ -1,11 +1,21 @@
+"""Slice: a plane through the volume, resliced and colored per pixel.
+
+``vtkImageResliceMapper`` samples the image on an arbitrary ``vtkPlane`` at
+screen resolution, with nearest or linear interpolation, and colors it
+through the lookup table on its ``vtkImageProperty``. The model drives the
+plane: an axis-aligned direction and slice index place it on a voxel plane;
+a custom origin and normal work the same way. Like every image mapper it
+displays the image's *active* scalars, so the displayed array is selected by
+making it active on this sink's own ``vtkImageData`` (each sink converts its
+own copy, see ``RepresentationSinkNode.consume``), the way the desktop's
+slice does with its active scalars producer.
+"""
+
 from __future__ import annotations
 
 from vtkmodules.vtkCommonDataModel import vtkPlane
-from vtkmodules.vtkFiltersCore import vtkFlyingEdgesPlaneCutter
-from vtkmodules.vtkRenderingCore import (
-    vtkActor,
-    vtkPolyDataMapper,
-)
+from vtkmodules.vtkRenderingCore import vtkImageProperty, vtkImageSlice
+from vtkmodules.vtkRenderingImage import vtkImageResliceMapper
 
 from tomviz_trame.app import data_model
 from tomviz_trame.app.pipeline.representations.core import (
@@ -34,10 +44,15 @@ class SliceRepresentation(Representation):
         self._slice_direction = "XY Plane"
 
         self.plane = vtkPlane()
-        self.extract = vtkFlyingEdgesPlaneCutter(plane=self.plane)
-        self.mapper = vtkPolyDataMapper()
-        self.actor = vtkActor(mapper=self.mapper)
-        self.producer >> self.extract >> self.mapper
+        self.mapper = vtkImageResliceMapper()
+        # The model owns the plane: never follow the camera or its focal point.
+        self.mapper.SliceFacesCameraOff()
+        self.mapper.SliceAtFocalPointOff()
+        self.mapper.SetSlicePlane(self.plane)
+        self.property = vtkImageProperty()
+        self.property.SetInterpolationTypeToNearest()  # the desktop's default
+        self.actor = vtkImageSlice(mapper=self.mapper, property=self.property)
+        self.producer >> self.mapper
         self.attach(view.vtk_view)
 
         self.model = data_model.SliceSinkNodeModel(
@@ -50,7 +65,51 @@ class SliceRepresentation(Representation):
 
     def set_input(self, image):
         super().set_input(image)
+        self._apply_color_array()
         self._update_plane()
+
+    def use_lut(self, lut):
+        if lut is None:
+            return
+
+        self.property.SetLookupTable(lut.table)
+        self.property.UseLookupTableScalarRangeOn()
+
+    @property
+    def Interpolate(self) -> bool:
+        return self.property.GetInterpolationTypeAsString() != "Nearest"
+
+    @Interpolate.setter
+    def Interpolate(self, value):
+        if value:
+            self.property.SetInterpolationTypeToLinear()
+        else:
+            self.property.SetInterpolationTypeToNearest()
+
+    @property
+    def ColorArrayName(self):
+        return getattr(self, "_color_array_name", (None, None))
+
+    @ColorArrayName.setter
+    def ColorArrayName(self, value):
+        self._color_array_name = value
+        self._apply_color_array()
+
+    def _apply_color_array(self):
+        """Make the displayed array the active scalars of the current image,
+        the only array the mapper shows. An array the image lacks leaves the
+        image's own choice in place."""
+        image = self.image
+        _association, name = self.ColorArrayName
+        if image is None or not name:
+            return
+        point_data = image.GetPointData()
+        scalars = point_data.GetScalars()
+        if scalars is not None and scalars.GetName() == name:
+            return
+        if point_data.GetAbstractArray(name) is None:
+            return
+        point_data.SetActiveScalars(name)
 
     @property
     def Slice(self):

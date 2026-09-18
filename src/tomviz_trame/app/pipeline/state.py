@@ -91,6 +91,8 @@ def slice_settings(entry: dict) -> dict:
         settings["SliceDirection"] = direction
     if "slice" in entry:
         settings["Slice"] = int(entry["slice"])
+    if "interpolate" in entry:
+        settings["Interpolate"] = bool(entry["interpolate"])
     return settings
 
 
@@ -131,7 +133,7 @@ COMMON_SINK_KEYS = {
     "useDetachedColorMap",
 }
 SINK_KEYS = {
-    RepresentationType.SLICE: {"direction", "slice"},
+    RepresentationType.SLICE: {"direction", "slice", "interpolate"},
     RepresentationType.VOLUME: {"interpolation", "lighting"},
 }
 LIGHTING_KEYS = {"enabled", "shadowReach", "scattering", "anisotropy"}

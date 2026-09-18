@@ -12,7 +12,10 @@ from tomviz_pipeline import (
     TransformPersistenceDefault,
 )
 from tomviz_pipeline.dataset import Dataset
+from tomviz_pipeline.writers import write_emd
+from vtkmodules.util.numpy_support import vtk_to_numpy
 from vtkmodules.vtkIOImage import vtkTIFFWriter
+from vtkmodules.vtkRenderingCore import vtkWindowToImageFilter
 
 from tomviz_trame.app import data_model
 from tomviz_trame.app.pipeline.vtk import convert
@@ -238,7 +241,7 @@ async def run_session(tiff):
         # slice stays opaque (its lookup table never takes the opacity
         # function, whose low end would hide the data).
         slice_model = next(s for s in sinks if s.representation_type == "SLICE")
-        lut = slice_model.representation.mapper.GetLookupTable()
+        lut = slice_model.representation.property.GetLookupTable()
         assert lut is slice_model.color_opacity.lut.table
         assert {
             lut.GetTableValue(i)[3] for i in range(lut.GetNumberOfTableValues())
@@ -332,3 +335,107 @@ def test_editing_a_pipeline_in_a_session(tiff, catalog, monkeypatch):
         f"--catalog {catalog} --settings {catalog.parent / 'settings.json'} --read-only",
     )
     asyncio.run(run_session(tiff))
+
+
+# -----------------------------------------------------------------------------
+# Multiple scalar arrays: the slice shows the array its color map selects
+
+TWO_ARRAYS_SHAPE = (8, 8, 8)
+PIXELS = 64
+
+
+@pytest.fixture
+def two_arrays_emd(tmp_path):
+    """A dataset with two arrays, ``a`` active. ``a`` ramps along x, so
+    the middle of a slice maps to the middle of its color map; ``b`` is
+    zero but for one voxel, so it maps to the bottom of its own."""
+    a = np.zeros(TWO_ARRAYS_SHAPE, dtype=np.uint16, order="F")
+    a[:] = np.arange(TWO_ARRAYS_SHAPE[0], dtype=np.uint16)[:, None, None]
+    b = np.zeros(TWO_ARRAYS_SHAPE, dtype=np.uint16, order="F")
+    b[0, 0, 0] = 200
+    dataset = Dataset({"a": a, "b": b})
+    dataset.active_name = "a"
+    path = tmp_path / "two_arrays.emd"
+    write_emd(dataset, path)
+    return path
+
+
+def center_color(view) -> tuple[int, ...]:
+    """The color rendered at the center of ``view`` (a ``vtk.view.View``)."""
+    window = view.render_window
+    window.SetSize(PIXELS, PIXELS)
+    window.Render()
+    grab = vtkWindowToImageFilter()
+    grab.SetInput(window)
+    grab.Update()
+    pixels = vtk_to_numpy(grab.GetOutput().GetPointData().GetScalars())
+    return tuple(int(v) for v in pixels.reshape(PIXELS, PIXELS, -1)[32, 32])
+
+
+def active_scalars(representation) -> str:
+    return representation.image.GetPointData().GetScalars().GetName()
+
+
+async def run_array_switch_session(emd):
+    from tomviz_trame.app.core import Tomviz
+
+    app = Tomviz(server="array-switch-session")
+    server = app.server
+    serve = asyncio.create_task(
+        server.start(exec_mode="coroutine", port=0, open_browser=False, timeout=0)
+    )
+    await server.ready
+    manager = app.ctx.pipeline
+
+    try:
+        source = data_model.get_instance(manager.load_file(emd))
+        await wait_idle(manager)
+        port = source.primary_output_model
+        shared = port.color_opacity
+        assert shared.data_arrays == ["a", "b"]
+        assert shared.active_data_array == "a"
+        sinks = [
+            m for m in manager.model.nodes if isinstance(m, data_model.SinkNodeModel)
+        ]
+        slice_model = next(s for s in sinks if s.representation_type == "SLICE")
+        representation = slice_model.representation
+        view = slice_model.view.vtk_view
+        assert active_scalars(representation) == "a"
+        ramp = center_color(view)
+        assert ramp != (255, 255, 255)
+
+        # ---- the shared map selects another array: the slice shows it
+        shared.active_data_array = "b"
+        await settle()
+        assert active_scalars(representation) == "b"
+        zero = center_color(view)
+        assert zero != ramp
+        assert zero != (255, 255, 255)  # the image slice's plain color
+
+        # ---- new data keeps the selection: a re-execution hands the sink a
+        # fresh image whose active scalars are the dataset's
+        slice_model.node.apply(convert.to_vtk_image(port.payload))
+        assert active_scalars(representation) == "b"
+        assert center_color(view) == zero
+
+        # ---- the sink's own map selects independently of the port's
+        slice_model.use_internal_color_opacity = True
+        await settle()
+        assert slice_model.color_opacity is not shared
+        slice_model.color_opacity.active_data_array = "a"
+        await settle()
+        assert active_scalars(representation) == "a"
+        assert shared.active_data_array == "b"
+        assert center_color(view) != zero
+    finally:
+        manager.shutdown()
+        await server.stop()
+        serve.cancel()
+
+
+def test_slice_shows_the_selected_array(two_arrays_emd, catalog, monkeypatch):
+    monkeypatch.setenv(
+        "TRAME_ARGS",
+        f"--catalog {catalog} --settings {catalog.parent / 'settings.json'} --read-only",
+    )
+    asyncio.run(run_array_switch_session(two_arrays_emd))

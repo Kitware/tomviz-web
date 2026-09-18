@@ -255,6 +255,7 @@ class SliceSinkNodeModel(ColorOpacityMixin, SinkNodeModel):
     SliceMax = Sync(int, 0)
     SliceDirection = Sync(str, "XY Plane", type_checking=TypeValidation.SKIP)
     SliceDirections = Sync(tuple[str, str, str], ("YZ Plane", "XZ Plane", "XY Plane"))
+    Interpolate = Sync(bool, False)  # linear (on) or nearest sampling
 
     def __init__(self, server, **kwargs):
         self.pre_init_color_opacity()
@@ -280,6 +281,7 @@ class SliceSinkNodeModel(ColorOpacityMixin, SinkNodeModel):
 
         self.Slice = self.representation.Slice
         self.SliceDirection = self.representation.SliceDirection
+        self.Interpolate = bool(self.representation.Interpolate)
 
         # Update max slice
         self._on_direction_change(self.SliceDirection)
@@ -290,6 +292,7 @@ class SliceSinkNodeModel(ColorOpacityMixin, SinkNodeModel):
 
         self.representation.SliceDirection = self.SliceDirection
         self.representation.Slice = self.Slice
+        self.representation.Interpolate = self.Interpolate
 
     @watch("SliceDirection")
     def _on_direction_change(self, direction):
@@ -308,5 +311,10 @@ class SliceSinkNodeModel(ColorOpacityMixin, SinkNodeModel):
     @watch("Slice")
     def _on_slice_change(self, _):
         logger.debug("Slice {}", self.Slice)
+        self.push()
+        self.render()
+
+    @watch("Interpolate")
+    def _on_interpolate_change(self, _):
         self.push()
         self.render()

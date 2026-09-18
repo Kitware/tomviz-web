@@ -72,6 +72,7 @@ def state_dict(tiff_path):
                     "inputPorts": {"volume": {"type": ["ImageData"]}},
                     "direction": 1,
                     "slice": 2,
+                    "interpolate": True,
                     "viewId": VIEW_ID,
                 },
                 {
@@ -235,7 +236,10 @@ def check_session(manager, server):
     slice_model, outline = sinks[3], sinks[4]
     assert (slice_model.SliceDirection, slice_model.Slice) == ("YZ Plane", 2)
     assert slice_model.SliceMax == SHAPE[0] - 1
-    assert slice_model.representation.actor.visibility
+    assert slice_model.Interpolate is True
+    representation = slice_model.representation
+    assert representation.property.GetInterpolationTypeAsString() == "Linear"
+    assert representation.actor.visibility
     assert outline.Visibility is False
     assert not outline.representation.actor.visibility
 

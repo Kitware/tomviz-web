@@ -80,9 +80,10 @@ def test_the_library_builds_the_sink_group_the_desktop_saves():
 
 
 def test_sink_settings_translate_desktop_enums():
-    assert state.slice_settings({"direction": 1, "slice": 7}) == {
+    assert state.slice_settings({"direction": 1, "slice": 7, "interpolate": True}) == {
         "SliceDirection": "YZ Plane",
         "Slice": 7,
+        "Interpolate": True,
     }
     assert state.slice_settings({"direction": 3}) == {}  # Custom: unsupported
     assert state.volume_settings(
@@ -140,6 +141,7 @@ def test_unrestored_settings_report_only_what_the_loader_skips():
         "visible": True,
         "direction": 0,
         "slice": 3,
+        "interpolate": True,
         "activeScalars": "tomviz::DefaultScalars",
         "thickSliceMode": 2,
         "opacity": 1,
