@@ -1,7 +1,7 @@
 [project]
 name = "tomviz-trame"
 version = "1.0.0"
-description = "ParaView and Trame based tomviz"
+description = "trame and VTK based web version of tomviz"
 authors = [
     {name = "Kitware Inc"},
 ]
@@ -15,6 +15,8 @@ dependencies = [
     "trame-colormaps>=1.5",
     "loguru",
     "vtk>=9.7",
+    "tomviz-pipeline>=3.1.6",
+    "scipy>=1.17.1",
 ]
 requires-python = ">=3.11"
 readme = "README.md"
@@ -52,11 +54,14 @@ build-backend = "hatchling.build"
 include = [
   "/src/tomviz_trame/**/*.py",
   "/src/tomviz_trame/app/assets/**/*",
+  "/src/tomviz_trame/app/module/serve/**/*",
+  "/src/tomviz_trame/builtin_kernels/**/*",
+  "/src/tomviz_trame/widgets/module/serve/*.js",
+  "/src/tomviz_trame/widgets/module/serve/*.css",
 ]
 
 [tool.hatch.build.targets.wheel]
 packages = [
-    "src/tomviz",
     "src/tomviz_trame",
 ]
 
@@ -95,7 +100,8 @@ ignore = [
 isort.required-imports = []
 
 [tool.ruff.lint.per-file-ignores]
-"src/tomviz/**" = [# FIXME
+"src/tomviz_trame/builtin_kernels/**" = [# upstream tomviz scripts, ported as-is
+    "I",
     "T201",
     "RET",
     "RUF",
@@ -119,7 +125,6 @@ isort.required-imports = []
 "tests/**" = ["T20"]
 "noxfile.py" = ["T20"]
 "src/**" = ["SIM117"]
-"src/tomviz_trame/app/ui/drawer_operators.py" = ["T20"]
 
 [tool.semantic_release]
 version_toml = [

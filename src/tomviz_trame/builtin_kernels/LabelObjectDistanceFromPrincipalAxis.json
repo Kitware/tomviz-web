@@ -1,0 +1,42 @@
+{
+  "name": "LabelObjectDistanceFromPrincipalAxis",
+  "label": "Label Object Distance From Principal Axis",
+  "description": "Computes the distance from an axis to voxels with the chosen label. The dataset is expected to be a label map and have field data arrays named 'Center' and 'PrincipalAxes'. Distance values replace labels in the dataset.",
+  "path": ["Segmentation", "Label Analysis"],
+  "tags": [
+    "label",
+    "distance",
+    "principal axis",
+    "segmentation",
+    "analysis",
+    "shape"
+  ],
+  "externalCompatible": false,
+  "parameters": [
+    {
+      "name": "label_value",
+      "label": "Label Value",
+      "description": "Label value of voxels for which distance should be computed.",
+      "type": "int",
+      "default": 1
+    },
+    {
+      "name": "principal_axis",
+      "label": "Principal Axis",
+      "description": "Principal axis to use",
+      "type": "enumeration",
+      "default": 0,
+      "options": [
+        {
+          "First": 0
+        },
+        {
+          "Second": 1
+        },
+        {
+          "Third": 2
+        }
+      ]
+    }
+  ]
+}

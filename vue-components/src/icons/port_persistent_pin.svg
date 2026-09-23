@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+  <!-- Corkboard pushpin viewed from the side: trapezoidal handle
+       (narrow at the top, wider at the base) sleeves over most of the
+       needle's length, leaving a short straight spike emerging from
+       the bottom. Slightly tilted clockwise. -->
+  <g transform="rotate(45 12 12)">
+    <!-- Elongated trapezoid handle: narrow top, wide base -->
+    <path d="M 9 3 L 15 3 L 18 14 L 6 14 Z" fill="#000"/>
+    <!-- Straight needle, slightly thinner than before -->
+    <rect x="10.75" y="14" width="2.5" height="8.5" fill="#000"/>
+  </g>
+</svg>

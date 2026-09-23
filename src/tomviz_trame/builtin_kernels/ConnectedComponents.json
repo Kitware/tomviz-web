@@ -1,0 +1,21 @@
+{
+  "name": "ConnectedComponents",
+  "label": "Connected Components",
+  "description": "Compute label map of connected components. The components are relabeled in order of increasing volume in the output.",
+  "path": ["Segmentation", "Thresholding"],
+  "tags": [
+    "connected components",
+    "labeling",
+    "segmentation",
+    "ITK",
+    "regions"
+  ],
+  "parameters": [
+    {
+      "name": "background_value",
+      "label": "Background Value",
+      "type": "int",
+      "default": 0
+    }
+  ]
+}

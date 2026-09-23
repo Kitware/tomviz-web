@@ -6,7 +6,7 @@ from tomviz_trame.app.ui.color_opacity import ColorOpacityEditor
 
 class ColorOpacitySection(html.Div):
     def __init__(self):
-        super().__init__()
+        super().__init__(classes="tomviz-drawer__color")
 
         with self:
             with v3.VBtn(
@@ -26,9 +26,10 @@ class ColorOpacitySection(html.Div):
                     classes="border-thin overflow-hidden flex-fill pa-2 mb-2",
                     flat=True,
                     variant="flat",
-                    v_show=("show_color_opacity && active_color_opacity_id",),
+                    v_show=("show_color_opacity", True),
                 ):
-                    ColorOpacityEditor(
-                        color_opacity_instance="active_color_opacity_id",
-                        colormaps_instance="colormaps_id",
-                    )
+                    with html.Div(v_show=("active_color_opacity_id",)):
+                        ColorOpacityEditor(
+                            color_opacity_instance="active_color_opacity_id",
+                            colormaps_instance="colormaps_id",
+                        )

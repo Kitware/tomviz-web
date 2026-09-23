@@ -1,6 +1,6 @@
 # tomviz-trame
 
-ParaView and Trame based tomviz
+trame and VTK based web version of the tomviz tomography application
 
 ![tomviz](https://raw.githubusercontent.com/Kitware/tomviz-trame/main/tomviz.png)
 
@@ -21,7 +21,7 @@ uv pip install .
 Run the application
 
 ```sh
-pvpython --venv .venv -m tomviz
+python -m tomviz_trame --server
 ```
 
 ## Development setup
@@ -52,6 +52,33 @@ nox -s lint
 
 # tests
 nox -s tests
+```
+
+### Vue components
+
+The pipeline widget is a Vue 3 + TypeScript component that lives in
+`vue-components/` and is served by the `tomviz_trame.widgets` package as a built
+bundle. The bundle is not under revision control, so the app cannot show the
+pipeline until it has been built.
+
+To run the app, build the bundle once after cloning (node 22+ and npm on the
+PATH); `nox -s build_js` does the same:
+
+```sh
+cd vue-components
+npm install
+npm run build          # writes src/tomviz_trame/widgets/module/serve/
+```
+
+To work on the components, replace `npm run build` with a watcher that rebuilds
+the bundle on every save (reload the browser to pick it up), and use the checks
+that `nox -s test_js` runs:
+
+```sh
+npm run dev            # rebuild on change, instead of npm run build
+npm test               # vitest
+npm run type-check     # vue-tsc
+npm run lint           # eslint
 ```
 
 ## Professional Support

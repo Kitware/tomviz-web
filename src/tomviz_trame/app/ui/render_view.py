@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from trame.ui.html import DivLayout
+from trame.widgets import html
 from trame.widgets import vtk as vtkw
 from trame.widgets import vuetify3 as v3
 
-from tomviz_trame.app.data_model import WindowInternalState
-from tomviz_trame.app.pipelines.vtk.view import View
+from tomviz_trame.app.data_model import ViewModel
+from tomviz_trame.app.pipeline.vtk.view import View
 
 VIEW_COLORS = [
     "#2196F3",  # blue
@@ -34,7 +35,7 @@ class RenderWindow(DivLayout):
         self.vtk_view = View()
 
         super().__init__(server, template_name=f"view_{self.vtk_view.id}")
-        self.local_state = WindowInternalState(self.server, color=next_color())
+        self.local_state = ViewModel(self.server, color=next_color())
         self.style = f"background: {self.local_state.color};"
 
         # Make new view active by default
@@ -52,6 +53,16 @@ class RenderWindow(DivLayout):
                     interactive_ratio=1,
                     interactor_events=("['EndAnimation', 'LeftButtonPress']",),
                     LeftButtonPress="active_view_id = rw_data._id",
+                )
+                # The active view wears a frame in its color (the color the
+                # pipeline widget shows on the sinks drawing in it).
+                html.Div(
+                    v_show=(f"active_view_id === '{self.local_state._id}'",),
+                    classes="position-absolute",
+                    style=(
+                        f"inset: 0; border: 3px solid {self.local_state.color}; "
+                        "pointer-events: none; z-index: 1;"
+                    ),
                 )
                 with v3.VCard(
                     style=(

@@ -1,0 +1,34 @@
+/** Layout constants of the desktop PipelineStripWidget, in CSS pixels. */
+export const GutterWidth = 24
+export const NodeCardHeight = 32
+export const CardSpacing = 4
+export const DirectConnectionSpacing = 4
+export const OutputSquareOverlap = 4
+export const PortIndent = 16
+export const PortContentPad = PortIndent / 2
+export const CardRadius = 4
+export const BadgeSize = 16
+export const DotRadius = 5
+export const OutputSquareEdge = 20
+export const OutputSquareRadius = 4
+export const OutputSquareSpacing = 29
+export const OutputSquareIconSize = 16
+export const PortCardHeight = OutputSquareEdge
+export const PortCardSpacing = CardSpacing + 2
+export const HeaderIconSize = 16
+export const HeaderRightPad = 4
+export const HeaderExpandWidth = 16
+export const HeaderButtonGap = 8
+export const HeaderButtonSpacing = 2
+export const LaneSpacing = 6
+export const PortClearance = 7
+export const DotClearance = DotRadius + PortClearance
+export const SquareClearance = OutputSquareEdge / 2 + PortClearance
+export const LinkCornerRadius = 4
+export const IndentWidth = 8
+export const Padding = 4
+/** Diameter of the persistence / data-location badges on port squares. */
+export const CornerBadgeSize = 12
+export const LinkStrokeWidth = 3
+export const LinkHitWidth = 8
+export const MinCardWidth = 80

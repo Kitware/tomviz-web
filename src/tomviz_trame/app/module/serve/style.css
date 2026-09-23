@@ -9,3 +9,46 @@
 .no-select {
   user-select: none;
 }
+
+/* The drawer's sections: stacked by default, or two columns with the
+   pipeline on the left (scrolling on its own) and the color map above the
+   properties on the right. Same widgets in both, only the layout differs. */
+.tomviz-drawer {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 8px 0; /* DRAWER_PADDING in core.py sizes the drawer from it */
+  max-height: calc(100vh - 48px);
+}
+.tomviz-drawer--columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  column-gap: 8px; /* DRAWER_COLUMN_GAP in core.py */
+  height: calc(100vh - 48px);
+}
+.tomviz-drawer--columns .tomviz-drawer__pipeline {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.tomviz-drawer--columns .tomviz-drawer__color {
+  grid-column: 2;
+  grid-row: 1;
+}
+.tomviz-drawer--columns .tomviz-drawer__properties {
+  grid-column: 2;
+  grid-row: 2;
+  min-height: 0;
+  overflow: auto;
+}
+
+/* The cards keep a placeholder height even with nothing to show. */
+.tomviz-drawer__pipeline > .v-card {
+  min-height: 200px;
+}
+.tomviz-drawer__color > .v-card,
+.tomviz-drawer__properties > .v-card {
+  min-height: 120px;
+}

@@ -4,7 +4,7 @@ from trame.widgets import html
 from trame.widgets import vuetify3 as v3
 
 from tomviz_trame.app import module, ui
-from tomviz_trame.app.pipelines import RepresentationType
+from tomviz_trame.app.pipeline import RepresentationType
 
 
 class Toolbar(v3.VAppBar):
@@ -49,12 +49,15 @@ class Toolbar(v3.VAppBar):
                 click="tomviz_file_loader = true",
             )
 
-            # # Data operators
-            # ui.toolbar_btn(
-            #     f"{module.BASENAME}/assets/data/operator.svg",
-            #     v_tooltip_bottom="'Select operator'",
-            #     click=self.fake_busy,
-            # )
+            v3.VDivider(vertical=True, classes="mr-2")
+
+            # Transform picker (appends at the tip port)
+            ui.toolbar_btn(
+                icon="mdi-shape-plus-outline",
+                v_tooltip_bottom="'Add transform'",
+                disabled=("!tip_port_id",),
+                click="select_transform = true",
+            )
 
             v3.VDivider(vertical=True, classes="mr-2")
 
@@ -63,10 +66,10 @@ class Toolbar(v3.VAppBar):
                 ui.toolbar_btn(
                     rep_type.icon,
                     v_tooltip_bottom=f"'{rep_type.label}'",
-                    disabled=("!active_view_id || !active_data_id",),
+                    disabled=("!active_view_id || !tip_port_id",),
                     click=(
-                        self.ctx.pipeline.add_representation,
-                        f"[active_data_id, active_view_id, '{rep_type.name}']",
+                        self.ctx.pipeline.add_sink,
+                        f"[active_view_id, '{rep_type.name}']",
                     ),
                 )
 

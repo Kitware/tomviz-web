@@ -2,7 +2,7 @@ from trame.ui.html import DivLayout
 from trame.widgets import dataclass, html
 from trame.widgets import vuetify3 as v3
 
-from tomviz_trame.app.pipelines import RepresentationType
+from tomviz_trame.app.pipeline import RepresentationType
 
 NAME = RepresentationType.SLICE.name
 TEMPLATE = f"rep_{NAME}"
@@ -16,7 +16,7 @@ class SliceRepresentationUI(DivLayout):
             self,
             dataclass.Provider(name="rep", instance=("active_representation_id",)),
         ):
-            with v3.VCard(classes="border-thin pa-2 mb-2", flat=True):
+            with html.Div(classes="pa-2"):
                 v3.VSelect(
                     label="Slice direction",
                     v_model="rep.SliceDirection",
@@ -40,6 +40,13 @@ class SliceRepresentationUI(DivLayout):
                 with html.Div(classes="d-flex justify-space-between mb-2 mx-1"):
                     v3.VLabel("0", classes="text-caption")
                     v3.VLabel("{{ rep.SliceMax }}", classes="text-caption")
+                v3.VCheckbox(
+                    label="Interpolate",
+                    v_model="rep.Interpolate",
+                    density="comfortable",
+                    hide_details=True,
+                    flat=True,
+                )
                 v3.VCheckbox(
                     label="Custom Color Opacity",
                     v_model="rep.use_internal_color_opacity",

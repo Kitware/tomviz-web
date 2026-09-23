@@ -1,6 +1,16 @@
 from trame.widgets import color_opacity_editor, dataclass, html
 from trame.widgets import vuetify3 as v3
 
+# CSS gradient of the map in use over the data range, from the colors sampled
+# for the editor (``ColorOpacityModel.scaled_colors``: ``[t, [r, g, b]]``
+# rows). The preset list keeps trame-colormaps' cached images: those preview
+# static presets, not the current map.
+CURRENT_MAP_GRADIENT = (
+    "{ background: 'linear-gradient(to right,' + "
+    "color_opacity.scaled_colors.map(([t, c]) => "
+    "`rgb(${c[0] * 255},${c[1] * 255},${c[2] * 255}) ${t * 100}%`).join(',') + ')' }"
+)
+
 
 class ColorOpacityEditor(html.Div):
     def __init__(
@@ -28,6 +38,13 @@ class ColorOpacityEditor(html.Div):
                             style="height: 15rem;",
                             v_model_colorNodes=("color_opacity.scaled_colors",),
                             v_model_opacityNodes=("color_opacity.scaled_opacities",),
+                            # Histogram nodes are normalized: x over the
+                            # data range as [0, 1] (like the color and
+                            # opacity nodes), y in histograms_range. With
+                            # background_shape="histograms" the widget paints
+                            # the preset gradient (scaled_colors) inside the
+                            # histogram silhouette: colored histograms.
+                            # show_histograms adds a flat overlay on top.
                             histograms=("color_opacity.scaled_histograms",),
                             histograms_range=("color_opacity.histograms_range",),
                             scalar_range=("default_scalar_range", [0, 1]),
@@ -74,11 +91,12 @@ class ColorOpacityEditor(html.Div):
                                             variant="outlined",
                                             size="small",
                                         ):
-                                            html.Img(
+                                            # The map in use, whatever its origin
+                                            # (preset, inverted, edited, loaded):
+                                            # the same colors the editor shows.
+                                            html.Div(
                                                 classes="position-absolute w-100 h-100",
-                                                src=(
-                                                    "colormaps.presets?.[color_opacity.active_color_preset].imgs[Number(color_opacity.invert_color_preset)]",
-                                                ),
+                                                style=(CURRENT_MAP_GRADIENT,),
                                             )
                                     with v3.VCard(style="width: 300px;"):
                                         v3.VTextField(
@@ -91,7 +109,7 @@ class ColorOpacityEditor(html.Div):
                                             density="comfortable",
                                             prepend_inner_icon="mdi-magnify",
                                             placeholder=(
-                                                "color_opacity.active_color_preset",
+                                                "color_opacity.active_color_preset || 'Custom'",
                                             ),
                                         )
                                         with v3.VList(density="comfortable"):

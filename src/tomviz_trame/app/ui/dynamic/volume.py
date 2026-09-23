@@ -2,7 +2,7 @@ from trame.ui.html import DivLayout
 from trame.widgets import dataclass, html
 from trame.widgets import vuetify3 as v3
 
-from tomviz_trame.app.pipelines import RepresentationType
+from tomviz_trame.app.pipeline import RepresentationType
 
 NAME = RepresentationType.VOLUME.name
 TEMPLATE = f"rep_{NAME}"
@@ -16,7 +16,7 @@ class VolumeRepresentationUI(DivLayout):
             self,
             dataclass.Provider(name="rep", instance=("active_representation_id",)),
         ):
-            with v3.VCard(classes="border-thin pa-2 mb-2", flat=True):
+            with html.Div(classes="pa-2"):
                 # Volume settings
 
                 with v3.VRow():

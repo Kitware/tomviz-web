@@ -5,41 +5,55 @@ from trame.widgets import vuetify3 as v3
 NAME = "data_info"
 TEMPLATE = NAME
 
+# Rows per payload family: (row label, PortDataModel field)
+ROWS = {
+    "image": [
+        ("Type", "port_type"),
+        ("Dimensions", "dimensions"),
+        ("Spacing", "spacing"),
+        ("Bounds", "bounds"),
+        ("Memory", "memory"),
+    ],
+    "table": [
+        ("Type", "port_type"),
+        ("Columns", "column_names"),
+        ("Rows", "num_rows"),
+    ],
+    "molecule": [
+        ("Type", "port_type"),
+        ("Atoms", "num_atoms"),
+        ("Bonds", "num_bonds"),
+        ("Elements", "elements"),
+    ],
+}
+
 
 class DataInformation(DivLayout):
+    """What is on the active output port, with rows for its payload
+    family. ``port`` is the ``OutputPortModel``, ``info`` its ``data``."""
+
     def __init__(self, server, template_name=NAME):
         super().__init__(server, template_name=template_name)
 
         with (
             self,
-            dataclass.Provider(name="info", instance=("active_data_id",)),
+            dataclass.Provider(name="port", instance=("active_port_id",)),
+            dataclass.Provider(
+                name="info", instance=("port?.data?._id ?? port?.data ?? null",)
+            ),
         ):
-            with v3.VCard(classes="border-thin", flat=True):
-                # with v3.VCardItem(
-                #     classes="pa-1 text-medium-emphasis",
-                #     title="Data information",
-                # ):
-                #     with v3.Template(v_slot_prepend=True):
-                #         v3.VIcon("mdi-database", size="small", classes="mx-1")
-                #     with v3.Template(v_slot_append=True):
-                #         v3.VBtn(
-                #             icon=(
-                #                 "show_data_information ? 'mdi-chevron-down' : 'mdi-chevron-up'",
-                #             ),
-                #             density="compact",
-                #             variant="plain",
-                #             click="show_data_information = !show_data_information",
-                #         )
-                # v3.VDivider(v_show=("show_data_information", True))
+            with html.Div(v_if="port?.has_data"):
                 with v3.VTable(
                     striped="even",
                     density="compact",
                 ):
                     with html.Tbody():
-                        for name in ["type", "bounds", "dimensions", "memory"]:
-                            with html.Tr():
-                                html.Td(name, classes="text-capitalize")
-                                html.Td("{{ info.%s }}" % (name))  # noqa: UP031
+                        for family, rows in ROWS.items():
+                            with v3.Template(v_if=f"info?.family === '{family}'"):
+                                for label, field in rows:
+                                    with html.Tr():
+                                        html.Td(label)
+                                        html.Td("{{ info.%s }}" % (field))  # noqa: UP031
 
 
 UI = DataInformation

@@ -1,0 +1,16 @@
+{
+  "name": "MedianFilter",
+  "label": "Median Filter",
+  "description": "Apply an isotropic median filter. The window size can be specified below:",
+  "path": ["Data Transforms", "Filters & Smoothing"],
+  "tags": ["median", "filter", "smoothing", "denoise", "noise removal"],
+  "parameters": [
+    {
+      "name": "size",
+      "label": "Size",
+      "type": "int",
+      "default": 2,
+      "minimum": 1
+    }
+  ]
+}

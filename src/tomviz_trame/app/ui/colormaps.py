@@ -25,7 +25,6 @@ def generate_colormaps(server):
     for name, imgs in presets.COLORBAR_CACHE.items():
         color_maps[name] = {
             "name": name,
-            "colors": [],  # FIXME
             "imgs": tuple(imgs.values()),
         }
 

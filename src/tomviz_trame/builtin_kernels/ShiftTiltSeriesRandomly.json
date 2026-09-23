@@ -1,0 +1,17 @@
+{
+  "name": "ShiftTiltSeries",
+  "label": "Shift Tilt Series Randomly",
+  "description": "Apply random integer shifts to tilt series. The maximum shift can be specified betow.",
+  "path": ["Tomography", "Simulation & Demonstrations"],
+  "tags": ["shift", "tilt series", "random", "simulation", "misalignment"],
+  "parameters": [
+    {
+      "name": "maxShift",
+      "label": "Maximum shift",
+      "description": "Max shift to apply",
+      "type": "int",
+      "default": 1,
+      "minimum": 0
+    }
+  ]
+}

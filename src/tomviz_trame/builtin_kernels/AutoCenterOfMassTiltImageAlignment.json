@@ -1,0 +1,18 @@
+{
+  "path": ["Tomography", "Alignment"],
+  "tags": [
+    "alignment",
+    "tilt series",
+    "center of mass",
+    "automatic",
+    "registration"
+  ],
+  "externalCompatible": false,
+  "results": [
+    {
+      "name": "alignments",
+      "label": "Alignments",
+      "type": "table"
+    }
+  ]
+}

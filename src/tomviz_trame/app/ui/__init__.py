@@ -3,10 +3,9 @@ from trame.app.dev import reload as dev_reload
 from . import (
     color_opacity,
     drawer_color_opacity,
-    drawer_info,
-    drawer_operators,
     drawer_pipeline,
     drawer_properties,
+    drawer_transforms,
     open_data,
     render_view,
     settings,
@@ -15,10 +14,9 @@ from . import (
 )
 from .color_opacity import ColorOpacityEditor
 from .drawer_color_opacity import ColorOpacitySection
-from .drawer_info import DataInformationSection
-from .drawer_operators import OperatorSelection
 from .drawer_pipeline import PipelineSection
 from .drawer_properties import PropertiesSections
+from .drawer_transforms import TransformSelection
 from .dynamic import initialize_dynamic_ui
 from .open_data import FileLoader
 from .render_view import RenderWindow
@@ -32,8 +30,7 @@ def reload(m=None):
     dev_reload(
         color_opacity,
         drawer_color_opacity,
-        drawer_info,
-        drawer_operators,
+        drawer_transforms,
         drawer_pipeline,
         drawer_properties,
         open_data,
@@ -50,14 +47,13 @@ def reload(m=None):
 __all__ = [
     "ColorOpacityEditor",
     "ColorOpacitySection",
-    "DataInformationSection",
     "FileLoader",
-    "OperatorSelection",
     "PipelineSection",
     "PropertiesSections",
     "RenderWindow",
     "SettingsDialog",
     "Toolbar",
+    "TransformSelection",
     "initialize_dynamic_ui",
     "toolbar_btn",
 ]

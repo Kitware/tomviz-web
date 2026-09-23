@@ -1,0 +1,42 @@
+{
+  "name": "PoreSizeDistribution",
+  "label": "Continuous Pore Size Distribution",
+  "description": "Continuous Pore Size Distribution calculation",
+  "path": ["Data Transforms", "Material Analysis"],
+  "tags": ["pore", "size distribution", "material", "porosity", "analysis"],
+  "parameters": [
+    {
+      "name": "threshold",
+      "label": "Threshold",
+      "type": "int",
+      "default": 127,
+      "minimum": 0
+    },
+    {
+      "name": "radius_spacing",
+      "label": "Spacing between radii",
+      "type": "int",
+      "default": 1,
+      "minimum": 1
+    },
+    {
+      "name": "save_to_file",
+      "label": "Save Extra Output to File",
+      "type": "bool",
+      "default": false
+    },
+    {
+      "name": "output_folder",
+      "label": "Destination Folder",
+      "type": "directory",
+      "default": ""
+    }
+  ],
+  "results": [
+    {
+      "name": "pore_size_distribution",
+      "label": "Pore Size Distribution",
+      "type": "table"
+    }
+  ]
+}

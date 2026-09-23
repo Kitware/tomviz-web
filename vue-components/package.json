@@ -1,0 +1,47 @@
+{
+  "name": "vue-tomviz_widgets",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Vue 3 components of the tomviz-trame application (pipeline widget)",
+  "scripts": {
+    "dev": "vite build --emptyOutDir --watch",
+    "build": "run-p type-check \"build-only {@}\" --",
+    "build-only": "vite build --emptyOutDir",
+    "type-check": "vue-tsc --noEmit -p tsconfig.app.json --composite false",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint . --fix --cache",
+    "format": "prettier --write src/ tests/"
+  },
+  "peerDependencies": {
+    "vue": "^3.5.0",
+    "vuetify": "^3.7.0"
+  },
+  "files": [
+    "src/*",
+    "*.json",
+    "*.ts"
+  ],
+  "devDependencies": {
+    "@tsconfig/node22": "^22.0.6",
+    "@types/node": "^26.5.0",
+    "@vitejs/plugin-vue": "^6.0.8",
+    "@vue/eslint-config-prettier": "^10.2.0",
+    "@vue/eslint-config-typescript": "^14.9.0",
+    "@vue/test-utils": "^2.5.0",
+    "@vue/tsconfig": "^0.9.1",
+    "eslint": "^10.10.0",
+    "eslint-plugin-vue": "^10.11.0",
+    "jiti": "^2.7.0",
+    "jsdom": "^29.1.1",
+    "npm-run-all2": "^8.0.4",
+    "prettier": "^3.9.6",
+    "typescript": "^6.0.3",
+    "vite": "^8.2.2",
+    "vitest": "^5.0.0",
+    "vue": "^3.5.42",
+    "vue-tsc": "^3.3.11",
+    "vuetify": "^3.13.3"
+  }
+}

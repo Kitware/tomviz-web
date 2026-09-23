@@ -48,11 +48,19 @@ class SettingsDialog(v3.VDialog):
                         )
                 v3.VDivider()
                 with v3.VCardText():
-                    html.Label("Operators search paths", classes="text-subtitle-2")
+                    v3.VSwitch(
+                        v_model=("drawer_columns", True),
+                        label="Two-column drawer (pipeline left, color map and properties right)",
+                        inset=True,
+                        density="comfortable",
+                        hide_details=True,
+                        classes="mb-2",
+                    )
+                    html.Label("Catalog search paths", classes="text-subtitle-2")
 
                     with v3.VList(
                         density="compact",
-                        items=("settings_operators_paths", ["~/.tomviz/operators"]),
+                        items=("settings_catalog_paths", ["~/.tomviz/catalog"]),
                         border="thin",
                         rounded=True,
                         classes="my-1",
@@ -64,13 +72,13 @@ class SettingsDialog(v3.VDialog):
                                         icon="mdi-trash-can-outline",
                                         density="compact",
                                         variant="plain",
-                                        click="settings_operators_paths = settings_operators_paths.filter(v => v !== props.title)",
+                                        click="settings_catalog_paths = settings_catalog_paths.filter(v => v !== props.title)",
                                     )
                     v3.VTextField(
-                        v_model=("settings_operators_path", ""),
+                        v_model=("settings_catalog_path", ""),
                         append_inner_icon="mdi-plus",
                         variant="outlined",
                         density="compact",
                         hide_details=True,
-                        click_appendInner="settings_operators_paths = [...settings_operators_paths, settings_operators_path]; settings_operators_path = '';",
+                        click_appendInner="settings_catalog_paths = [...settings_catalog_paths, settings_catalog_path]; settings_catalog_path = '';",
                     )

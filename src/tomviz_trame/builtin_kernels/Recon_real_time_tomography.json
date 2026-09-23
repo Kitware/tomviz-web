@@ -1,0 +1,92 @@
+{
+  "name": "LiveTomo",
+  "label": "Live Tomography Visualization",
+  "description": "Real-Time Tomography Application. Here tomographic reconstructions will occur in real time, updating as new data arrives in a specified directory. The tomogram will dynamically improve with time as both the reconstruction algorithm converges and additional projections arrives. A step-by-step guide is provided in the Real-Time Tomography User Manual. Below specify the directory where projection image data will arrive. The specimen tilt angle for each image is extracted automatically from the metadata in dm4 or ser files. However, for dm3 files, the name format must be '_[ANGLE]degrees_.dm3', where [ANGLE] is the tilt angle.",
+  "path": ["Tomography", "Simulation & Demonstrations"],
+  "tags": [
+    "reconstruction",
+    "real-time",
+    "live",
+    "tomography",
+    "visualization",
+    "streaming"
+  ],
+  "children": [
+    {
+      "name": "reconstruction",
+      "label": "Reconstruction",
+      "type": "reconstruction"
+    }
+  ],
+  "parameters": [
+    {
+      "name": "localDirectory",
+      "label": "Monitoring Directory",
+      "type": "string",
+      "default": ""
+    },
+    {
+      "name": "align",
+      "label": "Alignment Method",
+      "type": "enumeration",
+      "default": 0,
+      "options": [
+        {
+          "Center of Mass": 0
+        },
+        {
+          "Cross Correlation": 1
+        }
+      ]
+    },
+    {
+      "name": "invert",
+      "label": "Invert Contrast of Images (for BF-TEM)",
+      "type": "bool",
+      "default": false
+    },
+    {
+      "name": "alg",
+      "label": "Reconstruction Algorithm",
+      "type": "enumeration",
+      "default": 0,
+      "options": [
+        {
+          "ART": 0
+        },
+        {
+          "randART": 1
+        },
+        {
+          "SIRT": 2
+        },
+        {
+          "WBP": 3
+        }
+      ]
+    },
+    {
+      "name": "maxIter",
+      "label": "Total Iterations",
+      "type": "int",
+      "default": 50
+    },
+    {
+      "name": "fileExt",
+      "label": "File Extension",
+      "type": "enumeration",
+      "default": 0,
+      "options": [
+        {
+          "dm4": 0
+        },
+        {
+          "dm3": 1
+        },
+        {
+          "ser": 2
+        }
+      ]
+    }
+  ]
+}

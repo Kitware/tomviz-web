@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="24"
+   height="24"
+   viewBox="0 0 24 24"
+   version="1.1"
+   id="svg5"
+   sodipodi:docname="port_molecule.svg"
+   inkscape:version="1.2.2 (b0a8486541, 2022-12-01)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview14255"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     showgrid="true"
+     inkscape:zoom="39.270833"
+     inkscape:cx="12.03183"
+     inkscape:cy="12.03183"
+     inkscape:window-width="3774"
+     inkscape:window-height="2094"
+     inkscape:window-x="66"
+     inkscape:window-y="29"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg5">
+    <inkscape:grid
+       type="xygrid"
+       id="grid14737"
+       empspacing="1" />
+  </sodipodi:namedview>
+  <defs
+     id="defs2" />
+  <circle
+     style="fill:#000000;fill-opacity:0.5;stroke:none;stroke-width:0.236111;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:20"
+     id="path14791"
+     cx="12"
+     cy="11.5"
+     r="8.5" />
+  <circle
+     style="fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.28125;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:20"
+     id="path14793-3"
+     cx="17.5"
+     cy="16.5"
+     r="4.5" />
+  <circle
+     style="fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.28125;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:20"
+     id="path14793"
+     cx="6.5"
+     cy="16.5"
+     r="4.5" />
+</svg>

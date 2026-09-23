@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   id="Layer_1"
+   data-name="Layer 1"
+   viewBox="0 0 64 64"
+   version="1.1"
+   sodipodi:docname="port_persistent_disk.svg"
+   inkscape:version="1.4.4 (dcaf3e7d9e, 2026-05-05)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1" />
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     showgrid="true"
+     inkscape:zoom="28.921875"
+     inkscape:cx="31.982712"
+     inkscape:cy="32"
+     inkscape:window-width="3774"
+     inkscape:window-height="2083"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="Layer_1">
+    <inkscape:grid
+       id="grid1"
+       units="px"
+       originx="0"
+       originy="0"
+       spacingx="1"
+       spacingy="1"
+       empcolor="#0099e5"
+       empopacity="0.30196078"
+       color="#0099e5"
+       opacity="0.14901961"
+       empspacing="1"
+       enabled="true"
+       visible="true" />
+  </sodipodi:namedview>
+  <!-- Persistent-on-disk: same pin as port_transient.svg (identical
+       coordinates and rotation) with a disk silhouette overlaid on
+       the right side of the canvas, mirroring port_data_disk.svg. -->
+  <g transform="rotate(12 32 32)">
+    <path
+       d="M 16 8 L 48 8 L 48 15 L 40 15 L 48 38 L 16 38 L 24 15 L 16 15 Z"
+       style="fill:#a7d28c;stroke:#6f6f59;stroke-width:2.25;stroke-linecap:round;stroke-linejoin:round"
+       id="path1" />
+    <path
+       d="M 30 38 H 34 V 60 H 30 Z"
+       style="fill:#6f6f59;stroke:none"
+       id="path2" />
+  </g>
+  <!-- Disk silhouette on the right: a vertical yellow pill with a
+       thin grey ellipse near the top suggesting the platter rim.
+       Same geometry as port_data_disk.svg, scaled and translated.
+       stroke-width is pre-scale (~1.7 here so it lands at ~2.25 in
+       canvas units, matching the pin's stroke). -->
+  <g transform="translate(32 22) scale(1.333)"
+     fill="#f3c017" stroke="#6f6f59" stroke-width="1.7"
+     stroke-linejoin="round" stroke-linecap="round">
+    <path
+       d="M 3 6 C 3 4.3 7 3 12 3 C 17 3 21 4.3 21 6 V 18 C 21 19.7 17 21 12 21 C 7 21 3 19.7 3 18 Z"
+       id="path_pill" />
+    <path
+       d="M 3 6 C 3 4.3 7 3 12 3 C 17 3 21 4.3 21 6 C 21 7.7 17 9 12 9 C 7 9 3 7.7 3 6 Z"
+       id="path_rim" />
+  </g>
+</svg>

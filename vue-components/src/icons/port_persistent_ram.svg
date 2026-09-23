@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   id="Layer_1"
+   data-name="Layer 1"
+   viewBox="0 0 64 64"
+   version="1.1"
+   sodipodi:docname="port_persistent_ram.svg"
+   inkscape:version="1.4.4 (dcaf3e7d9e, 2026-05-05)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1" />
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     showgrid="true"
+     inkscape:zoom="28.921875"
+     inkscape:cx="31.982712"
+     inkscape:cy="32"
+     inkscape:window-width="3774"
+     inkscape:window-height="2083"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="Layer_1">
+    <inkscape:grid
+       id="grid1"
+       units="px"
+       originx="0"
+       originy="0"
+       spacingx="1"
+       spacingy="1"
+       empcolor="#0099e5"
+       empopacity="0.30196078"
+       color="#0099e5"
+       opacity="0.14901961"
+       empspacing="1"
+       enabled="true"
+       visible="true" />
+  </sodipodi:namedview>
+  <!-- Persistent-in-RAM: same pin as port_transient.svg (identical
+       coordinates and rotation) with a small RAM-stick silhouette
+       overlaid on the right side of the canvas. -->
+  <g transform="rotate(12 32 32)">
+    <path
+       d="M 16 8 L 48 8 L 48 15 L 40 15 L 48 38 L 16 38 L 24 15 L 16 15 Z"
+       style="fill:#a7d28c;stroke:#6f6f59;stroke-width:2.25;stroke-linecap:round;stroke-linejoin:round"
+       id="path1" />
+    <path
+       d="M 30 38 H 34 V 60 H 30 Z"
+       style="fill:#6f6f59;stroke:none"
+       id="path2" />
+  </g>
+  <!-- RAM stick on the right, shifted up by 10 units so it overlaps
+       the pin's lower body. Geometry otherwise unchanged (28 wide ×
+       19 tall, equal pin-width-and-gap connector pins). -->
+  <g fill="#6f6f59" stroke="none">
+    <!-- Background rectangle sitting behind the PCB body. The body
+         has chip-shaped cutouts (evenodd path) — this rect shows
+         through those windows, giving the chips a visible colour. -->
+    <rect x="34" y="28" width="28" height="18" fill="#f3c017"
+          id="rect_bg" />
+    <path
+       fill-rule="evenodd"
+       d="M 34 28 H 62 V 46 H 34 Z M 36 31 H 46 V 43 H 36 Z M 50 31 H 60 V 43 H 50 Z"
+       id="path3" />
+    <rect x="38" y="46" width="4" height="5" id="rect1" />
+    <rect x="46" y="46" width="4" height="5" id="rect2" />
+    <rect x="54" y="46" width="4" height="5" id="rect3" />
+  </g>
+</svg>

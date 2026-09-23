@@ -1,203 +1,196 @@
-from trame.widgets import dataclass, html
+"""The pipeline section of the drawer: the desktop's controls row (execution
+status, pause and cancel, focus mode, default persistence), the pipeline
+widget and its context menu. The widget renders the ``PipelineModel``; its
+events either write the models directly (selection, expansion, visibility)
+or call the manager."""
+
+from trame.widgets import html
 from trame.widgets import vuetify3 as v3
+
+from tomviz_trame.widgets import PipelineWidget
+
+PERSISTENCE_CHOICES = (
+    ("memory", "Persist in memory", "mdi-memory"),
+    ("disk", "Persist on disk", "mdi-harddisk"),
+    ("transient", "Transient", "mdi-timer-sand"),
+)
+PERSISTENCE_ICON = (
+    "transform_persistence_default === 'disk' ? 'mdi-harddisk' : "
+    "transform_persistence_default === 'transient' ? 'mdi-timer-sand' : 'mdi-memory'"
+)
+EXECUTION_ICON = (
+    "pipeline_executing ? 'mdi-stop' : pipeline_paused ? 'mdi-play' : 'mdi-pause'"
+)
+EXECUTION_TOOLTIP = (
+    "pipeline_executing ? 'Cancel execution' : pipeline_paused ? "
+    "'Resume automatic execution' : 'Pause automatic execution'"
+)
+STATUS_TEXT = (
+    "pipeline_stopping ? 'Stopping...' : "
+    "pipeline_paused ? 'Automatic execution paused' : ''"
+)
 
 
 class PipelineSection(html.Div):
     def __init__(self):
-        super().__init__()
+        super().__init__(classes="tomviz-drawer__pipeline")
+
+        self.state.setdefault("pipeline_menu", None)
+        self.state.setdefault("pipeline_menu_show", False)
+        self.state.setdefault("pipeline_dimming", False)
 
         with self:
-            with v3.VBtn(
+            v3.VBtn(
                 prepend_icon=("show_pipeline ? 'mdi-chevron-down' : 'mdi-chevron-up'",),
                 text="Pipelines",
                 click="show_pipeline = !show_pipeline",
                 classes="w-100 text-none mb-1",
                 variant="tonal",
                 spaced="end",
-            ):
-                with v3.Template(v_slot_append=True):
-                    with dataclass.Provider(
-                        name="active_view",
-                        instance=("active_view_id",),
-                    ):
-                        v3.VIcon("mdi-stop", color=("active_view.color",))
+            )
             with v3.VExpandTransition():
+                # A flex column so the widget fills the card: a click on any
+                # empty spot of the card lands on the widget and clears the
+                # selection.
                 with v3.VCard(
-                    classes="border-thin overflow-auto flex-fill mb-2",
+                    classes="border-thin overflow-auto flex-fill mb-2 d-flex flex-column",
                     flat=True,
                     variant="flat",
                     v_show=("show_pipeline", True),
                 ):
-                    with self.ctx.pipeline.tree.provide_as("pipeline"):
-                        with v3.VList(
-                            items=("pipeline.children",),
-                            item_title="name",
-                            item_value="_id",
-                            rounded=True,
-                            slim=True,
-                            classes="px-2 pt-0",
-                        ):
-                            with v3.Template(v_slot_item="{ props }"):
-                                with dataclass.Provider(
-                                    name="item", instance=("props.value",)
-                                ):
-                                    # html.Div("{{ item }}") # debug
-                                    with v3.VList(
-                                        bg_color="surface-light",
-                                        classes="py-0 pipeline mt-2",
-                                        color="primary",
-                                        density="compact",
-                                        rounded=True,
-                                        activatable=True,
-                                        v_model_activated="pipeline.active_node",
-                                    ):
-                                        with v3.VListItem(
-                                            classes="px-2 no-select",
-                                            tile=True,
-                                            title=("item.name",),
-                                            value=("item._id",),
-                                        ):
-                                            with v3.Template(v_slot_append=True):
-                                                v3.VBtn(
-                                                    # icon="mdi-flask-plus-outline",
-                                                    # icon="mdi-beaker-plus-outline",
-                                                    # icon="mdi-layers-plus",
-                                                    icon="mdi-shape-plus-outline",
-                                                    ripple=False,
-                                                    size="small",
-                                                    density="compact",
-                                                    variant="plain",
-                                                    classes="ml-1",
-                                                    v_on_click_prevent_stop="select_operator = true; active_data_id = item._id;",
-                                                )
-                                            with v3.Template(v_slot_prepend=True):
-                                                v3.VBtn(
-                                                    icon=(
-                                                        "`mdi-chevron-${item.expand_pipeline ? 'down' : 'right'}`",
-                                                    ),
-                                                    ripple=False,
-                                                    size="small",
-                                                    density="compact",
-                                                    variant="plain",
-                                                    classes="mr-1",
-                                                    v_on_click_prevent_stop="item.expand_pipeline = !item.expand_pipeline",
-                                                )
-                                        with v3.VExpandTransition():
-                                            with html.Div(
-                                                v_if="item.expand_pipeline",
-                                                classes="",
-                                            ):
-                                                v3.VLabel("{{ pipeline.active_node }}")
-                                                with v3.VTreeview(
-                                                    v_model_activated=(
-                                                        "pipeline.active_node",
-                                                    ),
-                                                    items=("item.pipelines",),
-                                                    density="compact",
-                                                    item_value="_id",
-                                                    item_title="name",
-                                                    item_children="pipelines",
-                                                    activatable=True,
-                                                    open_on_click=True,
-                                                    indent=10,
-                                                    hide_actions=True,
-                                                    open_all=True,
-                                                ):
-                                                    with v3.Template(
-                                                        v_slot_prepend="{ item }"
-                                                    ):
-                                                        v3.VIcon(
-                                                            icon=("item.icon",),
-                                                        )
-                                                    with v3.Template(
-                                                        v_slot_append="{ item }"
-                                                    ):
-                                                        v3.VBtn(
-                                                            icon="mdi-shape-plus-outline",
-                                                            ripple=False,
-                                                            size="small",
-                                                            density="compact",
-                                                            variant="plain",
-                                                            classes="ml-1",
-                                                            v_on_click_prevent_stop="select_operator = true; active_data_id = item._id;",
-                                                        )
-                                                with v3.Template(
-                                                    v_for="representations, view_id in item.representations",
-                                                    key="view_id",
-                                                ):
-                                                    with dataclass.Provider(
-                                                        name="view",
-                                                        instance=("view_id",),
-                                                    ):
-                                                        with v3.VAlert(
-                                                            border="start",
-                                                            border_color=(
-                                                                "view.color",
-                                                            ),
-                                                            classes="ml-6 mr-2 my-2 py-0 pl-2 pr-0",
-                                                            variant="tonal",
-                                                            color="bg-surface",
-                                                        ):
-                                                            v3.VBtn(
-                                                                icon=(
-                                                                    "item.expand_representations.includes(view_id) ? 'mdi-chevron-up' : 'mdi-chevron-down'",
-                                                                ),
-                                                                ripple=False,
-                                                                block=True,
-                                                                tile=True,
-                                                                variant="plain",
-                                                                density="compact",
-                                                                size="x-small",
-                                                                click="item.expand_representations = (item.expand_representations.includes(view_id) ? item.expand_representations.filter((v) => v !== view_id) : [...item.expand_representations, view_id])",
-                                                            )
-                                                            with v3.VExpandTransition():
-                                                                with v3.VList(
-                                                                    density="compact",
-                                                                    classes="py-0",
-                                                                    activatable=True,
-                                                                    v_model_activated="pipeline.active_node",
-                                                                    v_if="item.expand_representations.includes(view_id)",
-                                                                ):
-                                                                    with v3.Template(
-                                                                        v_for="rep, r_idx in representations",
-                                                                        key="r_idx",
-                                                                    ):
-                                                                        with dataclass.Provider(
-                                                                            name="rep",
-                                                                            instance=(
-                                                                                "rep",
-                                                                            ),
-                                                                        ):
-                                                                            with v3.VListItem(
-                                                                                title=[
-                                                                                    "rep.label"
-                                                                                ],
-                                                                                classes="representation px-2",
-                                                                                value=(
-                                                                                    "rep._id",
-                                                                                ),
-                                                                            ):
-                                                                                with v3.Template(
-                                                                                    v_slot_prepend=True
-                                                                                ):
-                                                                                    v3.VAvatar(
-                                                                                        image=[
-                                                                                            "rep.icon"
-                                                                                        ],
-                                                                                        tile=True,
-                                                                                        size="small",
-                                                                                        classes="rounded pa-1",
-                                                                                        # color="red",
-                                                                                        variant="tonal",
-                                                                                    )
-                                                                                with v3.Template(
-                                                                                    v_slot_append=True
-                                                                                ):
-                                                                                    v3.VBtn(
-                                                                                        icon=(
-                                                                                            "rep.Visibility ? 'mdi-eye-outline' : 'mdi-eye-off-outline'",
-                                                                                        ),
-                                                                                        density="compact",
-                                                                                        variant="plain",
-                                                                                        v_on_click_prevent_stop="rep.Visibility = !rep.Visibility",
-                                                                                    )
+                    self._controls()
+                    with self.ctx.pipeline.model.provide_as("pipeline"):
+                        PipelineWidget(
+                            nodes=("pipeline.nodes",),
+                            active_node=("pipeline.active_node",),
+                            tip_port=("tip_port_id",),
+                            locked=("pipeline_executing", False),
+                            dimming=("pipeline_dimming", False),
+                            update_active_node="pipeline.active_node = $event",
+                            toggle_expanded="$event.expanded = !$event.expanded",
+                            toggle_visibility="$event.Visibility = !$event.Visibility",
+                            toggle_breakpoint=(self.toggle_breakpoint, "[$event._id]"),
+                            leave_group=(self.ctx.pipeline.leave_group, "[$event._id]"),
+                            link_request=(
+                                self.ctx.pipeline.create_link,
+                                "[$event.output._id, $event.input._id]",
+                            ),
+                            contextmenu=(
+                                self.open_menu,
+                                "[$event.kind, $event.id, $event.x, $event.y]",
+                            ),
+                            delete=(self.delete, "[$event.kind, $event.id]"),
+                            dblclick=(self.ctx.pipeline.edit_node, "[$event._id]"),
+                        )
+
+            # The context menu the widget asks for: the manager decides the
+            # actions, the menu only shows them.
+            with v3.VMenu(
+                v_model=("pipeline_menu_show", False),
+                target=("[pipeline_menu?.x ?? 0, pipeline_menu?.y ?? 0]",),
+                location="bottom start",
+                close_on_content_click=True,
+            ):
+                with v3.VList(density="compact", slim=True):
+                    v3.VListItem(
+                        v_for="action in pipeline_menu?.actions ?? []",
+                        key="action.id",
+                        title=("action.title",),
+                        prepend_icon=("action.icon",),
+                        append_icon=("action.checked ? 'mdi-check' : undefined",),
+                        disabled=("action.disabled",),
+                        click=(self.run_action, "[action.id]"),
+                    )
+
+    def _controls(self):
+        """The row above the widget, after the desktop's controls widget."""
+        manager = self.ctx.pipeline
+        with html.Div(
+            classes="d-flex align-center px-1 ga-1 border-b-thin flex-grow-0",
+            style="min-height: 32px",
+        ):
+            v3.VProgressCircular(
+                v_show=("pipeline_executing", False),
+                indeterminate=True,
+                size=14,
+                width=2,
+                classes="mx-1",
+            )
+            html.Span(
+                f"{{{{ {STATUS_TEXT} }}}}",
+                classes="text-caption text-medium-emphasis text-truncate",
+            )
+            v3.VSpacer()
+            v3.VBtn(
+                icon=(EXECUTION_ICON,),
+                size="small",
+                variant="text",
+                density="comfortable",
+                v_tooltip_bottom=(EXECUTION_TOOLTIP,),
+                click=self.execution_button,
+            )
+            v3.VDivider(vertical=True, classes="mx-1 my-1")
+            v3.VBtn(
+                icon=("pipeline_dimming ? 'mdi-filter' : 'mdi-filter-off-outline'",),
+                size="small",
+                variant="text",
+                density="comfortable",
+                v_tooltip_bottom="'Focus mode: fade what is far from the selection'",
+                click="pipeline_dimming = !pipeline_dimming",
+            )
+            v3.VDivider(vertical=True, classes="mx-1 my-1")
+            with v3.VMenu():
+                with v3.Template(v_slot_activator="{ props }"):
+                    v3.VBtn(
+                        v_bind="props",
+                        icon=(PERSISTENCE_ICON,),
+                        size="small",
+                        variant="text",
+                        density="comfortable",
+                        v_tooltip_bottom="'Default persistence of transform outputs'",
+                    )
+                with v3.VList(density="compact", slim=True):
+                    for value, title, icon in PERSISTENCE_CHOICES:
+                        v3.VListItem(
+                            title=title,
+                            prepend_icon=icon,
+                            append_icon=(
+                                f"transform_persistence_default === '{value}' ? 'mdi-check' : undefined",
+                            ),
+                            click=(
+                                manager.set_transform_persistence_default,
+                                f"['{value}']",
+                            ),
+                        )
+
+    def execution_button(self):
+        manager = self.ctx.pipeline
+        if manager.pipeline.is_executing():
+            manager.cancel_execution()
+        else:
+            manager.set_paused(not manager.pipeline.paused)
+
+    def open_menu(self, kind, target_id, x, y):
+        actions = self.ctx.pipeline.menu_actions(kind, target_id)
+        if not actions:
+            return
+        with self.state as s:
+            s.pipeline_menu = {
+                "kind": kind,
+                "id": target_id,
+                "x": x,
+                "y": y,
+                "actions": actions,
+            }
+            s.pipeline_menu_show = True
+
+    def run_action(self, action_id):
+        menu = self.state.pipeline_menu or {}
+        self.state.pipeline_menu_show = False
+        self.ctx.pipeline.run_menu_action(action_id, menu.get("kind"), menu.get("id"))
+
+    def delete(self, kind, target_id):
+        self.ctx.pipeline.run_menu_action("delete", kind, target_id)
+
+    def toggle_breakpoint(self, node_id):
+        self.ctx.pipeline.toggle_breakpoint(node_id)

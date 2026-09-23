@@ -1,0 +1,18 @@
+{
+  "name": "Shift3D",
+  "label": "Shift",
+  "description": "Shift a dataset.",
+  "path": ["Data Transforms", "Volume Manipulation"],
+  "tags": ["shift", "translate", "move", "3D", "volume", "offset"],
+  "parameters": [
+    {
+      "name": "SHIFT",
+      "label": "Shift",
+      "description": "Amount to shift by.",
+      "type": "double",
+      "default": [0.0, 0.0, 0.0],
+      "minimum": [-999, -999, -999],
+      "maximum": [999, 999, 999]
+    }
+  ]
+}
