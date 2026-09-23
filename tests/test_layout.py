@@ -85,7 +85,17 @@ def test_nested_splits_alternate_and_same_direction_ones_flatten():
 
     # The same direction twice in a row is one branch with three children.
     entry = {
-        "items": [[split(VERTICAL, 0.5), cell(1), split(VERTICAL, 0.5), cell(0), cell(0), cell(2), cell(3)]]
+        "items": [
+            [
+                split(VERTICAL, 0.5),
+                cell(1),
+                split(VERTICAL, 0.5),
+                cell(0),
+                cell(0),
+                cell(2),
+                cell(3),
+            ]
+        ]
     }
     layout = dockview_layout(entry, panels(1, 2, 3))
     assert layout["grid"]["orientation"] == "VERTICAL"

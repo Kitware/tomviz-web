@@ -1,18 +1,19 @@
 """The desktop's view layout as a dockview layout.
 
-A state file's ``layouts`` entries serialize ParaView's
+On the desktop, a state file's ``layouts`` entries serialize ParaView's
 ``vtkSMViewLayoutProxy``: a binary tree stored as a flat list where item
 ``i`` has its children at ``2i + 1`` (left or top) and ``2i + 2``. Each item
-has a ``direction`` (0: a cell holding ``viewId``, or empty when 0;
-1: split top/bottom; 2: split left/right), and a split's ``fraction`` is
-the first child's share.
+has a ``direction`` (0: a cell holding ``viewId``, or empty when 0; 1: split
+top/bottom; 2: split left/right), and a split's ``fraction`` is the first
+child's share.
 
-dockview describes the same thing as a tree of branches whose orientation
-alternates with depth (``grid.orientation`` at the root), with leaves holding
-panel ids and sizes in whatever units the grid is given: it re-lays the grid
-out proportionally to its container, so sizes only need to be relative.
-``dockview_layout`` converts one into the other, flattening nested splits of
-the same direction into one branch since dockview cannot nest those."""
+On the web, dockview describes the same thing as a tree of branches whose
+orientation alternates with depth (``grid.orientation`` at the root), with
+leaves holding panel ids and sizes in whatever units the grid is given: it
+re-lays the grid out proportionally to its container, so sizes only need to
+be relative. ``dockview_layout`` converts one into the other, flattening
+nested splits of the same direction into one branch since dockview cannot
+nest those."""
 
 from __future__ import annotations
 
@@ -75,7 +76,11 @@ def dockview_layout(
                 raise LookupError(view_id)
             placed.append(view_id)
             panel_id = panels[view_id]["id"]
-            data = {"views": [panel_id], "activeView": panel_id, "id": group_id(view_id)}
+            data = {
+                "views": [panel_id],
+                "activeView": panel_id,
+                "id": group_id(view_id),
+            }
             return {"type": "leaf", "data": data}
 
         orientation = ORIENTATIONS[direction]
@@ -120,7 +125,12 @@ def dockview_layout(
     _strip_orientation(root)
 
     layout = {
-        "grid": {"root": root, "width": size, "height": size, "orientation": orientation},
+        "grid": {
+            "root": root,
+            "width": size,
+            "height": size,
+            "orientation": orientation,
+        },
         "panels": {panel["id"]: panel for panel in panels.values()},
     }
     if active_view_id in panels:

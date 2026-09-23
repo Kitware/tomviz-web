@@ -20,7 +20,7 @@ from tomviz_pipeline import (
     ThreadedExecutor,
     TransformPersistenceDefault,
 )
-from trame.app import TrameComponent
+from trame.app import TrameComponent, asynchronous
 from trame.decorators import change, trigger
 
 from tomviz_trame.app import data_model
@@ -86,7 +86,6 @@ class PipelineManager(TrameComponent):
 
         self.node_models: dict[int, data_model.NodeModel] = {}  # node.id -> model
         self.views = {}  # view_id -> ui.RenderWindow
-        self.pending_tasks = set()
 
         self.tip_port: OutputPort | None = None
         self._selected_node: Node | None = None
@@ -520,9 +519,7 @@ class PipelineManager(TrameComponent):
 
     def load_state_file_later(self, file_path: str | Path):
         """Schedule ``load_state_file`` from synchronous code (UI callbacks)."""
-        task = asyncio.create_task(self.load_state_file(file_path))
-        self.pending_tasks.add(task)
-        task.add_done_callback(self.pending_tasks.discard)
+        asynchronous.create_task(self.load_state_file(file_path))
 
     # -------------------------------------------------------------------------
     # Views
@@ -608,9 +605,7 @@ class PipelineManager(TrameComponent):
             self.state.active_view_id = None
 
     def refresh_views_later(self, **_):
-        task = asyncio.create_task(self._refresh_views())
-        self.pending_tasks.add(task)
-        task.add_done_callback(self.pending_tasks.discard)
+        asynchronous.create_task(self._refresh_views())
 
     async def _refresh_views(self):
         await asyncio.sleep(0.1)
