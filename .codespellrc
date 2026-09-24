@@ -1,3 +1,3 @@
 [codespell]
-skip = **/package-lock.json,CHANGELOG.md,src/tomviz_trame/app/pipelines/vtk/presets.json
+skip = **/package-lock.json,CHANGELOG.md
 ignore-words-list = ser

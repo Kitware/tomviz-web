@@ -26,7 +26,7 @@ def lint(session: nox.Session) -> None:
 @nox.session(venv_backend="none")
 def build_js(session: nox.Session) -> None:
     """
-    Build the Vue components (vue-components/) into the tomviz_trame.widgets module.
+    Build the Vue components (vue-components/) into the tomviz_web.widgets module.
     Needs node (22+) and npm on the PATH.
     """
     session.chdir(DIR / "vue-components")

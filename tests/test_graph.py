@@ -10,7 +10,7 @@ from tomviz_pipeline import (
     TransformNode,
 )
 
-from tomviz_trame.app.pipeline import graph
+from tomviz_web.app.pipeline import graph
 
 
 class Const(SourceNode):

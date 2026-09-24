@@ -3,7 +3,7 @@ import { fileURLToPath, URL } from 'node:url'
 import { defineConfig } from 'vitest/config'
 import vue from '@vitejs/plugin-vue'
 
-// The bundle is served by the trame module in src/tomviz_trame/widgets/module.
+// The bundle is served by the trame module in src/tomviz_web/widgets/module.
 // Vue and Vuetify come from the trame client, so both stay external.
 export default defineConfig({
   build: {
@@ -25,7 +25,7 @@ export default defineConfig({
         },
       },
     },
-    outDir: '../src/tomviz_trame/widgets/module/serve',
+    outDir: '../src/tomviz_web/widgets/module/serve',
     assetsDir: '.',
   },
   plugins: [vue()],

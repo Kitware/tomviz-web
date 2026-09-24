@@ -15,9 +15,9 @@ from tomviz_pipeline.dataset import Dataset
 from tomviz_pipeline.state import write_state_tvh5
 from vtkmodules.vtkIOImage import vtkTIFFWriter
 
-from tomviz_trame.app import data_model
-from tomviz_trame.app.pipeline.nodes import RepresentationSinkNode, register_nodes
-from tomviz_trame.app.pipeline.vtk import convert
+from tomviz_web.app import data_model
+from tomviz_web.app.pipeline.nodes import RepresentationSinkNode, register_nodes
+from tomviz_web.app.pipeline.vtk import convert
 
 SHAPE = (3, 4, 5)
 VIEW_ID = 42
@@ -165,7 +165,7 @@ def sinks_of(manager):
 
 
 async def run_session(tvsm, tvh5):
-    from tomviz_trame.app.core import Tomviz
+    from tomviz_web.app.core import Tomviz
 
     app = Tomviz()
     server = app.server

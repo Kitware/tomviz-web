@@ -3,7 +3,7 @@ from tomviz_pipeline.dataset import Dataset
 from vtkmodules.util.numpy_support import numpy_to_vtk
 from vtkmodules.vtkCommonDataModel import vtkImageData
 
-from tomviz_trame.app.pipeline.vtk import convert
+from tomviz_web.app.pipeline.vtk import convert
 
 
 def make_dataset(shape=(4, 5, 6), dtype=np.uint16):

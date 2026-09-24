@@ -4,7 +4,7 @@ import json
 
 from trame.app import get_server
 
-from tomviz_trame.app.settings import PERSISTED, Settings
+from tomviz_web.app.settings import PERSISTED, Settings
 
 
 def make_server(name):

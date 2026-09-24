@@ -5,9 +5,9 @@ from tomviz_pipeline import SinkGroupNode, SinkNode
 from tomviz_pipeline.core.state import pipeline_from_state_dict
 from tomviz_pipeline.nodes import register_builtins
 
-from tomviz_trame.app.pipeline import state
-from tomviz_trame.app.pipeline.graph import data_port_of, primary_upstream
-from tomviz_trame.app.pipeline.representations import RepresentationType
+from tomviz_web.app.pipeline import state
+from tomviz_web.app.pipeline.graph import data_port_of, primary_upstream
+from tomviz_web.app.pipeline.representations import RepresentationType
 
 # A reader feeding a sink group that fans out to two sinks, the desktop
 # app's layout.

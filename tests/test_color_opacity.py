@@ -2,12 +2,12 @@ import asyncio
 
 import pytest
 
-from tomviz_trame.app.data_model.color_opacity import (
+from tomviz_web.app.data_model.color_opacity import (
     ECHO_WINDOW,
     ColorOpacityModel,
     normalize_color_space,
 )
-from tomviz_trame.app.pipeline.vtk.core import LookupTable, PiecewiseFunction
+from tomviz_web.app.pipeline.vtk.core import LookupTable, PiecewiseFunction
 
 # A three-point map over [10, 20] in the state-file vocabulary.
 COLORS = [10.0, 0.0, 0.0, 1.0, 15.0, 0.0, 1.0, 0.0, 20.0, 1.0, 0.0, 0.0]

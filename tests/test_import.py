@@ -1,2 +1,2 @@
 def test_import():
-    from tomviz_trame.app import main  # noqa: F401
+    from tomviz_web.app import main  # noqa: F401
