@@ -23,7 +23,6 @@ jobs:
           version: "0.12.19"
           enable-cache: true
       - name: Install OSMesa for Linux
-        if: matrix.config.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
           sudo apt-get install -y libosmesa6-dev
@@ -35,4 +34,4 @@ jobs:
       - name: Install the project
         run: uv sync --all-extras --dev
       - name: Run tests and code validation
-        run: nox
+        run: uv run nox
