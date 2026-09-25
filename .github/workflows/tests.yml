@@ -1,4 +1,4 @@
-name: Test and Release
+name: Tests
 
 on:
   push:
@@ -46,15 +46,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
+
       - name: Install uv
         uses: astral-sh/setup-uv@v6
         with:
           version: "0.12.19"
           enable-cache: true
+          python-version: ${{ matrix.python-version }}
+
       - name: Install OSMesa for Linux
         if: matrix.config.os == 'ubuntu-latest'
         run: |
@@ -70,36 +69,4 @@ jobs:
       - name: Install and Run Tests
         run: |
           uv sync --dev
-          uv pip install -r tests/requirements.txt
           uv run pytest -s ./tests
-
-  release:
-    needs: [pre-commit, pytest]
-    runs-on: ubuntu-latest
-    environment: release
-    permissions:
-      id-token: write # IMPORTANT: mandatory for trusted publishing
-      contents: write # IMPORTANT: mandatory for making GitHub Releases
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Build Vue Components
-        run: |
-          cd vue-components
-          npm ci
-          npm run build
-
-      - name: Python Semantic Release
-        id: release
-        uses: python-semantic-release/python-semantic-release@master
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-
-      # https://docs.pypi.org/trusted-publishers/using-a-publisher/
-      - name: Publish package distributions to PyPI
-        if: steps.release.outputs.released == 'true'
-        uses: pypa/gh-action-pypi-publish@release/v1
