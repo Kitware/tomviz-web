@@ -17,8 +17,8 @@ from vtkmodules.util.numpy_support import vtk_to_numpy
 from vtkmodules.vtkIOImage import vtkTIFFWriter
 from vtkmodules.vtkRenderingCore import vtkWindowToImageFilter
 
-from tomviz_trame.app import data_model
-from tomviz_trame.app.pipeline.vtk import convert
+from tomviz_web.app import data_model
+from tomviz_web.app.pipeline.vtk import convert
 
 SHAPE = (3, 4, 5)
 
@@ -72,7 +72,7 @@ async def settle():
 
 
 async def run_session(tiff):
-    from tomviz_trame.app.core import Tomviz
+    from tomviz_web.app.core import Tomviz
 
     app = Tomviz(server="editing-session")  # its own server: one app per test
     server = app.server
@@ -377,7 +377,7 @@ def active_scalars(representation) -> str:
 
 
 async def run_array_switch_session(emd):
-    from tomviz_trame.app.core import Tomviz
+    from tomviz_web.app.core import Tomviz
 
     app = Tomviz(server="array-switch-session")
     server = app.server

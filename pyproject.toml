@@ -1,5 +1,5 @@
 [project]
-name = "tomviz-trame"
+name = "tomviz-web"
 version = "1.0.0"
 description = "trame and VTK based web version of tomviz"
 authors = [
@@ -52,17 +52,17 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build]
 include = [
-  "/src/tomviz_trame/**/*.py",
-  "/src/tomviz_trame/app/assets/**/*",
-  "/src/tomviz_trame/app/module/serve/**/*",
-  "/src/tomviz_trame/builtin_kernels/**/*",
-  "/src/tomviz_trame/widgets/module/serve/*.js",
-  "/src/tomviz_trame/widgets/module/serve/*.css",
+  "/src/**/*.py",
+  "/src/tomviz_web/app/assets/**/*",
+  "/src/tomviz_web/app/module/serve/**/*",
+  "/src/tomviz_web/builtin_kernels/**/*",
+  "/src/tomviz_web/widgets/module/serve/*.js",
+  "/src/tomviz_web/widgets/module/serve/*.css",
 ]
 
 [tool.hatch.build.targets.wheel]
 packages = [
-    "src/tomviz_trame",
+    "src/tomviz_web",
 ]
 
 [tool.ruff]
@@ -100,7 +100,7 @@ ignore = [
 isort.required-imports = []
 
 [tool.ruff.lint.per-file-ignores]
-"src/tomviz_trame/builtin_kernels/**" = [# upstream tomviz scripts, ported as-is
+"src/tomviz_web/builtin_kernels/**" = [# upstream tomviz scripts, ported as-is
     "I",
     "T201",
     "RET",
@@ -131,7 +131,7 @@ version_toml = [
     "pyproject.toml:project.version",
 ]
 version_variables = [
-    "src/tomviz_trame/__init__.py:__version__",
+    "src/tomviz_web/__init__.py:__version__",
 ]
 
 build_command = "uv build"

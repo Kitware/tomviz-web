@@ -7,11 +7,11 @@ from tomviz_pipeline import NodeState, Pipeline, PortData, SinkNode, SourceNode
 from tomviz_pipeline.dataset import Dataset
 from tomviz_pipeline.nodes.transforms.legacy_python import LegacyPythonTransform
 
-from tomviz_trame.app.pipeline.nodes import INPUT_PORT, build_transform_node
+from tomviz_web.app.pipeline.nodes import INPUT_PORT, build_transform_node
 
 pytest.importorskip("scipy")
 
-BUILTIN = Path(__file__).parent.parent / "src" / "tomviz_trame" / "builtin_kernels"
+BUILTIN = Path(__file__).parent.parent / "src" / "tomviz_web" / "builtin_kernels"
 
 
 @pytest.fixture
@@ -89,7 +89,7 @@ def test_gaussian_chain_reexecutes_on_parameter_change(gaussian):
 
 
 def test_parameterless_description_still_makes_a_model():
-    from tomviz_trame.app.parameters_gui import to_parameters_model
+    from tomviz_web.app.parameters_gui import to_parameters_model
 
     model = to_parameters_model(None, {"name": "NoParams", "parameters": []})
     assert set() == model.FIELD_NAMES
@@ -97,8 +97,8 @@ def test_parameterless_description_still_makes_a_model():
 
 
 def test_parameter_edits_are_staged_until_applied(gaussian):
-    from tomviz_trame.app import data_model
-    from tomviz_trame.app.parameters_gui import to_parameters_model
+    from tomviz_web.app import data_model
+    from tomviz_web.app.parameters_gui import to_parameters_model
 
     description, script = gaussian
     node = build_transform_node(description, script, {"sigma": 1.0})

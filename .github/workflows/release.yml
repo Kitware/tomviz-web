@@ -1,0 +1,55 @@
+name: Release
+on:
+  workflow_dispatch: # manually triggered
+
+env:
+  FORCE_COLOR: 3
+
+jobs:
+  # https://docs.pypi.org/trusted-publishers/using-a-publisher/
+  release:
+    name: Distribution build and publish to PyPI
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      attestations: write
+      contents: write
+    environment: release
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set Up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.12.19"
+          enable-cache: true
+
+      - name: Build Vue Components
+        run: |
+          cd vue-components
+          npm ci
+          npm run build
+
+      - name: Python Semantic Release
+        id: release
+        uses: python-semantic-release/python-semantic-release@v10.6.2
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate artifact attestation for sdist and wheel
+        if: steps.release.outputs.released == 'true'
+        uses: actions/attest-build-provenance@v4.2.2
+        with:
+          subject-path: "dist/*"
+
+      - name: Publish package distributions to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        if: steps.release.outputs.released == 'true'

@@ -21,7 +21,7 @@ uv pip install .
 Run the application
 
 ```sh
-python -m tomviz_trame --server
+python -m tomviz_web --server
 ```
 
 ## Development setup
@@ -57,7 +57,7 @@ nox -s tests
 ### Vue components
 
 The pipeline widget is a Vue 3 + TypeScript component that lives in
-`vue-components/` and is served by the `tomviz_trame.widgets` package as a built
+`vue-components/` and is served by the `tomviz_web.widgets` package as a built
 bundle. The bundle is not under revision control, so the app cannot show the
 pipeline until it has been built.
 
@@ -67,7 +67,7 @@ PATH); `nox -s build_js` does the same:
 ```sh
 cd vue-components
 npm install
-npm run build          # writes src/tomviz_trame/widgets/module/serve/
+npm run build          # writes src/tomviz_web/widgets/module/serve/
 ```
 
 To work on the components, replace `npm run build` with a watcher that rebuilds

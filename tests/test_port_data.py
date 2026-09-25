@@ -3,9 +3,9 @@ from tomviz_pipeline.dataset import Dataset
 from tomviz_pipeline.molecule import Molecule
 from tomviz_pipeline.table import Table
 
-from tomviz_trame.app import data_model
-from tomviz_trame.app.pipeline.representations import RepresentationType
-from tomviz_trame.app.utils import data
+from tomviz_web.app import data_model
+from tomviz_web.app.pipeline.representations import RepresentationType
+from tomviz_web.app.utils import data
 
 
 def test_every_library_port_type_maps_to_a_payload_model():

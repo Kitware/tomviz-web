@@ -1,6 +1,6 @@
 import asyncio
 
-from tomviz_trame.app.data_model.view import ViewModel
+from tomviz_web.app.data_model.view import ViewModel
 
 
 class FakeWidget:

@@ -4,12 +4,12 @@ from tomviz_pipeline import NodeFactory, NodeState, Pipeline, PortData, SinkNode
 from tomviz_pipeline.dataset import Dataset
 from vtkmodules.vtkIOImage import vtkTIFFWriter
 
-from tomviz_trame.app.pipeline.nodes import (
+from tomviz_web.app.pipeline.nodes import (
     INPUT_PORT,
     ReaderSourceNode,
     register_nodes,
 )
-from tomviz_trame.app.pipeline.vtk import convert
+from tomviz_web.app.pipeline.vtk import convert
 
 
 @pytest.fixture

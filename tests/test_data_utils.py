@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 from tomviz_pipeline.dataset import Dataset
 
-from tomviz_trame.app.utils import data
+from tomviz_web.app.utils import data
 
 
 def test_histogram_matches_numpy_exactly():

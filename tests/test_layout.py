@@ -1,6 +1,6 @@
 """The desktop's view layout tree turned into a dockview layout."""
 
-from tomviz_trame.app.pipeline.layout import (
+from tomviz_web.app.pipeline.layout import (
     HORIZONTAL,
     VERTICAL,
     dockview_layout,
