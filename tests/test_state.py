@@ -223,6 +223,40 @@ def test_threshold_settings_take_the_desktop_keys():
     assert state.unrestored_sink_settings(entry, RepresentationType.THRESHOLD) == []
 
 
+def test_clip_settings_take_the_desktop_keys():
+    # A Custom clip, inverted: the saved corners already carry the inverted
+    # normal (the widget flipped it), so it is taken as is.
+    entry = {
+        "direction": 3,
+        "plane": 4,
+        "opacity": 0.25,
+        "showPlane": False,
+        "showArrow": False,
+        "invertPlane": True,
+        "selectedColor": [1.0, 0.0, 0.0],
+        "origin": [0, 10, 5],
+        "point1": [10, 10, 5],
+        "point2": [0, 0, 5],
+        "linked": True,
+    }
+    assert state.clip_settings(entry) == {
+        "SliceDirection": "Custom",
+        "Slice": 4,
+        "Opacity": 0.25,
+        "ShowPlane": False,
+        "ShowArrow": False,
+        "InvertPlane": True,
+        "Color": "#ff0000",
+        "PlaneCenter": (5.0, 5.0, 5.0),
+        "PlaneNormal": (0.0, 0.0, -100.0),
+    }
+    # an axis-aligned clip ignores the corners
+    assert state.clip_settings(
+        {"direction": 1, **{k: entry[k] for k in ("origin", "point1", "point2")}}
+    ) == {"SliceDirection": "YZ Plane"}
+    assert state.unrestored_sink_settings(entry, RepresentationType.CLIP) == ["linked"]
+
+
 def test_every_desktop_sink_type_has_a_representation_type():
     for sink_type in ("sink.outline", "sink.slice", "sink.volume"):
         rep_type = state.REPRESENTATION_BY_SINK_TYPE[sink_type]

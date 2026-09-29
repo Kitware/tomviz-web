@@ -35,6 +35,7 @@ from tomviz_web.app import data_model
 from tomviz_web.app.pipeline.representations.core import (
     Representation,
     RepresentationType,
+    set_mapper_clipping_planes,
 )
 from tomviz_web.app.pipeline.vtk.bricking import (
     brick_volume,
@@ -60,6 +61,8 @@ from tomviz_web.app.utils.volume import (
 BLEND_MODES = ("Composite", "Max", "Min", "Average", "Additive")
 # vtkVolumeProperty's interpolation types, in their order
 INTERPOLATION_TYPES = ("Nearest", "Linear")
+# What vtkGPUVolumeRayCastMapper's shader takes
+MAX_CLIPPING_PLANES = 6
 
 
 def _noop(*_):
@@ -112,6 +115,8 @@ class VolumeRepresentation(Representation):
         # bounding planes per slab while the direction is custom.
         self.slabs: list[tuple[vtkVolume, vtkGPUVolumeRayCastMapper]] = []
         self.slab_planes: list[tuple[vtkPlane, vtkPlane]] = []
+        self._slab_clipping = False
+        self._clip_planes: list[vtkPlane] = []  # the clips of the group
         self._order_reversed = False
         self._order_dirty = True
 
@@ -707,14 +712,40 @@ class VolumeRepresentation(Representation):
         del self.slab_planes[len(mappers) :]
         while len(self.slab_planes) < len(mappers):
             self.slab_planes.append((vtkPlane(), vtkPlane()))
-        for mapper, pair in zip(mappers, self.slab_planes, strict=True):
-            planes = mapper.GetClippingPlanes()
-            for plane in pair:
-                present = planes is not None and planes.IsItemPresent(plane)
-                if custom and not present:
-                    mapper.AddClippingPlane(plane)
-                elif not custom and present:
-                    mapper.RemoveClippingPlane(plane)
+        self._slab_clipping = custom
+        self._apply_clipping()
+
+    # ---- clips ---------------------------------------------------------------
+
+    @property
+    def clip_planes(self) -> list:
+        return self._clip_planes
+
+    def set_clipping_planes(self, planes) -> bool:
+        """Be cut by ``planes`` (the clips of its group). True if changed.
+        The bricked mapper is handed them too, though the desktop found
+        they have no effect there."""
+        planes = list(planes)
+        if planes == self._clip_planes:
+            return False
+        self._clip_planes = planes
+        self._apply_clipping()
+        coordinator = MultiVolumeCoordinator.find(self.vtk_view)
+        if coordinator is not None:
+            coordinator.refresh_settings()
+        return True
+
+    def _apply_clipping(self):
+        """Each mapper: the clips' planes, then its slab's pair for a custom
+        exploded direction; the GPU mapper takes at most six."""
+        for k, mapper in enumerate(self.mappers):
+            planes = list(self._clip_planes)
+            if self._slab_clipping and k < len(self.slab_planes):
+                planes += self.slab_planes[k]
+            set_mapper_clipping_planes(mapper, planes[:MAX_CLIPPING_PLANES])
+        set_mapper_clipping_planes(
+            self.brick_mapper, self._clip_planes[:MAX_CLIPPING_PLANES]
+        )
 
     def _place_slabs(self):
         """Slab k sits ``k * gap * length`` along the direction; a custom

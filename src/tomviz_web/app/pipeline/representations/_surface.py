@@ -1,13 +1,17 @@
 """What the surface visualizations (contour, threshold) share: an actor
 drawn as a surface, wireframe or points, with Phong lighting and opacity,
 colored by the array of the sink's color map through its lookup table, by
-the raw values ("Color Map Data" off), or in one solid color."""
+the raw values ("Color Map Data" off), or in one solid color, and cut by
+the clips of its group."""
 
 from __future__ import annotations
 
 from vtkmodules.vtkRenderingCore import vtkActor, vtkPolyDataMapper, vtkProperty
 
-from tomviz_web.app.pipeline.representations.core import Representation
+from tomviz_web.app.pipeline.representations.core import (
+    Representation,
+    set_mapper_clipping_planes,
+)
 from tomviz_web.app.utils.colors import hex_to_rgb, rgb_to_hex
 
 SURFACE_MODES = ("Points", "Wireframe", "Surface")  # vtkProperty's order
@@ -28,6 +32,10 @@ class SurfaceRepresentation(Representation):
         self.mapper = vtkPolyDataMapper()
         self.mapper.SetColorModeToMapScalars()
         self.actor = vtkActor(mapper=self.mapper, property=self.property)
+
+    def set_clipping_planes(self, planes) -> bool:
+        """Be cut by ``planes`` (the clips of its group). True if changed."""
+        return set_mapper_clipping_planes(self.mapper, planes)
 
     # ---- appearance --------------------------------------------------------
 

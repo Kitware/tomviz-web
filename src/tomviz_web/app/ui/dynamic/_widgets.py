@@ -4,6 +4,8 @@ panel's ``dataclass.Provider`` exposes as ``rep``."""
 from trame.widgets import html
 from trame.widgets import vuetify3 as v3
 
+from tomviz_web.app import data_model
+
 COMPACT = {"density": "compact", "hide_details": True}
 FILLED = {"variant": "solo-filled", "flat": True, **COMPACT}
 
@@ -94,4 +96,58 @@ def surface_mode_select(field="Mode", label="Mode"):
         items=("['Surface', 'Wireframe', 'Points']",),
         classes="mt-2",
         **FILLED,
+    )
+
+
+# ---- planes (slice, clip) ----------------------------------------------------
+
+
+def set_normal_to_view(representation_id):
+    model = data_model.get_instance(representation_id)
+    if model is not None:
+        model.set_normal_to_view()
+
+
+def plane_direction(index_label):
+    """The direction and, for an axis-aligned plane, the index slider. A new
+    direction starts from the middle (-1), as the desktop re-centers the
+    plane when the direction changes."""
+    v3.VSelect(
+        label="Direction",
+        v_model="rep.SliceDirection",
+        items=("rep.SliceDirections",),
+        update_modelValue="$event !== 'Custom' && (rep.Slice = -1)",
+        classes="mt-2",
+        **FILLED,
+    )
+    with html.Div(v_if="rep.SliceDirection !== 'Custom'"):
+        with html.Div(classes="d-flex justify-space-between mt-2 mx-1"):
+            v3.VLabel(index_label)
+            v3.VLabel("{{ rep.Slice }}")
+        v3.VSlider(
+            v_model="rep.Slice",
+            min=0,
+            step=1,
+            max=("rep.SliceMax",),
+            hide_details=True,
+            density="comfortable",
+        )
+        with html.Div(classes="d-flex justify-space-between mb-2 mx-1"):
+            v3.VLabel("0", classes="text-caption")
+            v3.VLabel("{{ rep.SliceMax }}", classes="text-caption")
+
+
+def plane_fields():
+    """The plane's point and normal (editable for a Custom plane) and the
+    desktop's Set Normal to View."""
+    custom_only = "rep.SliceDirection !== 'Custom'"
+    vector_fields("PlaneCenter", "Point on Plane", disabled=custom_only)
+    vector_fields("PlaneNormal", "Plane Normal", disabled=custom_only)
+    v3.VBtn(
+        "Set Normal to View",
+        click=(set_normal_to_view, "[active_representation_id]"),
+        block=True,
+        variant="tonal",
+        classes="mt-2 text-none",
+        size="small",
     )

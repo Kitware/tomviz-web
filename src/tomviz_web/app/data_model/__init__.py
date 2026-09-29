@@ -28,6 +28,7 @@ from .port_data import (
     register_port_data_model,
 )
 from .sinks import (
+    ClipSinkNodeModel,
     ContourSinkNodeModel,
     OutlineSinkNodeModel,
     SinkNodeModel,
@@ -40,6 +41,7 @@ from .view import ViewModel
 __all__ = [
     "CatalogFolder",
     "CatalogItem",
+    "ClipSinkNodeModel",
     "ColorMaps",
     "ColorOpacityModel",
     "ColorPreset",

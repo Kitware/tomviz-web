@@ -264,7 +264,54 @@ def threshold_settings(entry: dict) -> dict:
     return settings
 
 
+def plane_of_points(entry: dict):
+    """The (center, normal) of the plane the desktop's plane widget saves as
+    ``origin``, ``point1`` and ``point2``, or None. The normal is theirs,
+    inverted or not."""
+    corners = [vector3(entry.get(key)) for key in ("origin", "point1", "point2")]
+    if any(c is None for c in corners):
+        return None
+    origin, point1, point2 = corners
+    u = [a - o for a, o in zip(point1, origin, strict=True)]
+    v = [b - o for b, o in zip(point2, origin, strict=True)]
+    normal = (
+        u[1] * v[2] - u[2] * v[1],
+        u[2] * v[0] - u[0] * v[2],
+        u[0] * v[1] - u[1] * v[0],
+    )
+    if not any(normal):
+        return None
+    center = tuple(o + (a + b) / 2 for o, a, b in zip(origin, u, v, strict=True))
+    return center, normal
+
+
+def clip_settings(entry: dict) -> dict:
+    settings = {}
+    direction = SLICE_DIRECTIONS.get(entry.get("direction"))
+    if direction is not None:
+        settings["SliceDirection"] = direction
+    if "plane" in entry:
+        settings["Slice"] = int(entry["plane"])
+    if "opacity" in entry:
+        settings["Opacity"] = float(entry["opacity"])
+    for key, field in (
+        ("showPlane", "ShowPlane"),
+        ("showArrow", "ShowArrow"),
+        ("invertPlane", "InvertPlane"),
+    ):
+        if key in entry:
+            settings[field] = bool(entry[key])
+    color = vector3(entry.get("selectedColor"))
+    if color is not None:
+        settings["Color"] = rgb_to_hex(color)
+    plane = plane_of_points(entry)
+    if plane is not None and direction == "Custom":
+        settings["PlaneCenter"], settings["PlaneNormal"] = plane
+    return settings
+
+
 SINK_SETTINGS = {
+    RepresentationType.CLIP: clip_settings,
     RepresentationType.CONTOUR: contour_settings,
     RepresentationType.THRESHOLD: threshold_settings,
     RepresentationType.OUTLINE: outline_settings,
@@ -287,6 +334,18 @@ COMMON_SINK_KEYS = {
     "useDetachedColorMap",
 }
 SINK_KEYS = {
+    RepresentationType.CLIP: {
+        "direction",
+        "plane",
+        "opacity",
+        "showPlane",
+        "showArrow",
+        "invertPlane",
+        "selectedColor",
+        "origin",
+        "point1",
+        "point2",
+    },
     RepresentationType.CONTOUR: {
         "contourValue",
         "opacity",

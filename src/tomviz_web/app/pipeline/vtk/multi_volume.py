@@ -38,6 +38,7 @@ from vtkmodules.vtkRenderingVolume import vtkGPUVolumeRayCastMapper, vtkMultiVol
 
 MINIMUM_MEMBERS = 2  # from this many on, the view renders through the set
 MAXIMUM_MEMBERS = 10  # vtkGPUVolumeRayCastMapper's input ports
+MAXIMUM_CLIPPING_PLANES = 6  # what its shader takes
 
 
 class MultiVolumeCoordinator:
@@ -45,7 +46,7 @@ class MultiVolumeCoordinator:
 
     Members are volume representations exposing ``actor`` (their
     ``vtkVolume``), ``rendered_image`` and ``rendered_array`` (what their
-    own mapper draws), ``smooth_normals``, ``label`` and
+    own mapper draws), ``smooth_normals``, ``clip_planes``, ``label`` and
     ``apply_multi_volume_state()``, called whenever their place changes."""
 
     @classmethod
@@ -179,11 +180,20 @@ class MultiVolumeCoordinator:
             self.mapper.RemoveInputConnection(port, 0)
 
     def refresh_settings(self):
-        """Something mapper-level changed on a member: the lead's normals."""
+        """Something mapper-level changed on a member: the lead's normals,
+        the clips. One mapper has one set of planes, so a plane clipping
+        any member clips them all (the desktop's rule); the shader takes at
+        most six, and a plane two members share goes in once."""
         lead = self.lead
         self.mapper.SetComputeNormalFromOpacity(
             bool(lead is not None and lead.smooth_normals)
         )
+        planes = []
+        for member in self.members:
+            planes += [p for p in member.clip_planes if p not in planes]
+        self.mapper.RemoveAllClippingPlanes()
+        for plane in planes[:MAXIMUM_CLIPPING_PLANES]:
+            self.mapper.AddClippingPlane(plane)
 
     # ---- activation --------------------------------------------------------
 

@@ -216,6 +216,52 @@ class FieldSyncMixin:
 
 
 # -----------------------------------------------------------------------------
+class PlaneModelMixin:
+    """The plane fields of a slice or a clip (``PlaneRepresentation``):
+    ``SliceDirection``, ``Slice`` (-1 for the middle), ``SliceMax``,
+    ``PlaneCenter`` and ``PlaneNormal``. The plane fields follow the plane
+    in every direction, but only a Custom plane takes them from the model.
+    Dragging the handles updates them through ``pull_plane``."""
+
+    @property
+    def is_custom(self):
+        return self.SliceDirection == "Custom"
+
+    def pull_plane(self):
+        """Read the plane back: the resolved slice index, the direction (the
+        handles may have switched it to Custom) and the plane itself."""
+        representation = self.representation
+        if representation is None:
+            return
+
+        self.SliceDirection = representation.SliceDirection
+        self.Slice = int(representation.Slice)
+        if representation.is_ortho:
+            self.SliceMax = max(representation.slice_count() - 1, 0)
+        self.PlaneCenter = tuple(representation.PlaneCenter)
+        self.PlaneNormal = tuple(representation.PlaneNormal)
+
+    def push_plane(self):
+        representation = self.representation
+        if self.is_custom:
+            representation.PlaneCenter = tuple(self.PlaneCenter)
+            representation.PlaneNormal = tuple(self.PlaneNormal)
+        representation.SliceDirection = self.SliceDirection
+        representation.Slice = self.Slice
+
+    def set_normal_to_view(self):
+        """Make the plane face the camera (the desktop's button): a Custom
+        plane through the current center along the view direction."""
+        camera = self.view.vtk_view.renderer.GetActiveCamera()
+        position, focal_point = camera.GetPosition(), camera.GetFocalPoint()
+        normal = tuple(f - p for f, p in zip(focal_point, position, strict=True))
+        if not any(normal):
+            return
+        self.PlaneNormal = normal
+        self.SliceDirection = "Custom"
+
+
+# -----------------------------------------------------------------------------
 class OutlineSinkNodeModel(SinkNodeModel):
     """Bounding box of the input, with the desktop's optional grid axes.
 
@@ -509,7 +555,7 @@ class VolumeSinkNodeModel(ColorOpacityMixin, SinkNodeModel):
 
 
 # -----------------------------------------------------------------------------
-class SliceSinkNodeModel(ColorOpacityMixin, SinkNodeModel):
+class SliceSinkNodeModel(PlaneModelMixin, ColorOpacityMixin, SinkNodeModel):
     """A slice through the data: axis-aligned, or Custom (any center and
     normal), with the desktop's thick slicing, opacity, "map scalars" and
     in-view handles (``ShowArrow``).
@@ -557,10 +603,6 @@ class SliceSinkNodeModel(ColorOpacityMixin, SinkNodeModel):
         super().__init__(server, **kwargs)
         self.post_init_color_opacity()
 
-    @property
-    def is_custom(self):
-        return self.SliceDirection == "Custom"
-
     def pull(self):
         super().pull()
         if self.representation is None:
@@ -575,47 +617,18 @@ class SliceSinkNodeModel(ColorOpacityMixin, SinkNodeModel):
         self.ShowArrow = bool(representation.ShowArrow)
         self.pull_plane()
 
-    def pull_plane(self):
-        """Read the plane back: the resolved slice index, the direction (the
-        handles may have switched it to Custom) and the plane itself."""
-        representation = self.representation
-        if representation is None:
-            return
-
-        self.SliceDirection = representation.SliceDirection
-        self.Slice = int(representation.Slice)
-        if representation.is_ortho:
-            self.SliceMax = max(representation.slice_count() - 1, 0)
-        self.PlaneCenter = tuple(representation.PlaneCenter)
-        self.PlaneNormal = tuple(representation.PlaneNormal)
-
     def push(self):
         if self.representation is None:
             return
 
+        self.push_plane()
         representation = self.representation
-        if self.is_custom:
-            representation.PlaneCenter = tuple(self.PlaneCenter)
-            representation.PlaneNormal = tuple(self.PlaneNormal)
-        representation.SliceDirection = self.SliceDirection
-        representation.Slice = self.Slice
         representation.Interpolate = self.Interpolate
         representation.Opacity = self.Opacity
         representation.SliceThickness = self.SliceThickness
         representation.ThickSliceMode = self.ThickSliceMode
         representation.MapScalars = self.MapScalars
         representation.ShowArrow = self.ShowArrow
-
-    def set_normal_to_view(self):
-        """Make the plane face the camera (the desktop's button): a Custom
-        plane through the current center along the view direction."""
-        camera = self.view.vtk_view.renderer.GetActiveCamera()
-        position, focal_point = camera.GetPosition(), camera.GetFocalPoint()
-        normal = tuple(f - p for f, p in zip(focal_point, position, strict=True))
-        if not any(normal):
-            return
-        self.PlaneNormal = normal
-        self.SliceDirection = "Custom"
 
     @watch(
         "SliceDirection",
@@ -735,6 +748,76 @@ class ThresholdSinkNodeModel(FieldSyncMixin, ColorOpacityMixin, SinkNodeModel):
         self.ArrayNames = self.representation.array_names()
 
     @watch(*FIELDS)
+    def _on_prop_change(self, *_):
+        self.push()
+        self.pull()
+        self.render()
+
+
+# -----------------------------------------------------------------------------
+class ClipSinkNodeModel(PlaneModelMixin, SinkNodeModel):
+    """A plane cutting the other visualizations of its group (see
+    ``ClipRepresentation``): placed like a slice, drawn translucent."""
+
+    SliceDirection = Sync(str, "XY Plane", type_checking=TypeValidation.SKIP)
+    SliceDirections = Sync(
+        tuple[str, str, str, str], ("XY Plane", "YZ Plane", "XZ Plane", "Custom")
+    )
+    Slice = Sync(int, -1)  # -1: the middle
+    SliceMax = Sync(int, 0)
+    # Edited by the panel as JSON arrays: no tuple validation.
+    PlaneCenter = Sync(
+        tuple[float, float, float],
+        (0.0, 0.0, 0.0),
+        type_checking=TypeValidation.SKIP,
+    )
+    PlaneNormal = Sync(
+        tuple[float, float, float],
+        (0.0, 0.0, 1.0),
+        type_checking=TypeValidation.SKIP,
+    )
+    ShowArrow = Sync(bool, True)
+    ShowPlane = Sync(bool, True)
+    InvertPlane = Sync(bool, False)
+    Opacity = Sync(float, 0.5)
+    Color = Sync(str, "#ffffff")
+
+    FIELDS = ("ShowArrow", "ShowPlane", "InvertPlane", "Opacity", "Color")
+
+    def pull(self):
+        super().pull()
+        representation = self.representation
+        if representation is None:
+            return
+        for field in self.FIELDS:
+            setattr(self, field, getattr(representation, field))
+        self.pull_plane()
+
+    def push(self):
+        representation = self.representation
+        if representation is None:
+            return
+        self.push_plane()
+        for field in self.FIELDS:
+            setattr(representation, field, getattr(self, field))
+
+    def invert(self, value: bool):
+        """The panel's Invert: an axis-aligned plane flips through
+        ``InvertPlane``; a Custom one flips its own normal (a saved Custom
+        normal is already the inverted one, so loading never flips it)."""
+        if bool(value) == self.InvertPlane:
+            return
+        self.InvertPlane = bool(value)
+        if self.is_custom:
+            self.PlaneNormal = tuple(-c for c in self.PlaneNormal)
+
+    @watch(
+        "SliceDirection",
+        "Slice",
+        "PlaneCenter",
+        "PlaneNormal",
+        *FIELDS,
+    )
     def _on_prop_change(self, *_):
         self.push()
         self.pull()

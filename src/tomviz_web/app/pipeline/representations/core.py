@@ -68,6 +68,22 @@ class RepresentationType(Enum):
         return self.representation_class(pipeline_manager, source_port, view)
 
 
+def set_mapper_clipping_planes(mapper, planes) -> bool:
+    """Make ``planes`` the clipping planes of ``mapper``. True if changed."""
+    current = mapper.GetClippingPlanes()
+    existing = (
+        [current.GetItem(i) for i in range(current.GetNumberOfItems())]
+        if current is not None
+        else []
+    )
+    if existing == list(planes):
+        return False
+    mapper.RemoveAllClippingPlanes()
+    for plane in planes:
+        mapper.AddClippingPlane(plane)
+    return True
+
+
 class Representation:
     """VTK plumbing for one visualization of a dataset in one view.
 
