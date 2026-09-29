@@ -250,8 +250,23 @@ def contour_settings(entry: dict) -> dict:
     return settings
 
 
+def threshold_settings(entry: dict) -> dict:
+    settings = surface_settings(
+        entry, (("opacity", "Opacity"), ("specular", "Specular"))
+    )
+    # The desktop saves both bounds or neither.
+    if "minimum" in entry and "maximum" in entry:
+        settings["Minimum"] = float(entry["minimum"])
+        settings["Maximum"] = float(entry["maximum"])
+    index = entry.get("scalarArray")
+    if isinstance(index, int) and index >= 0:
+        settings["ThresholdBy"] = index  # resolved to a name once data comes
+    return settings
+
+
 SINK_SETTINGS = {
     RepresentationType.CONTOUR: contour_settings,
+    RepresentationType.THRESHOLD: threshold_settings,
     RepresentationType.OUTLINE: outline_settings,
     RepresentationType.SLICE: slice_settings,
     RepresentationType.VOLUME: volume_settings,
@@ -285,6 +300,17 @@ SINK_KEYS = {
         "color",
         "activeScalars",
         # the sink's own color map's array, see apply_sink_settings
+        "colorByArray",
+        "colorByArrayName",
+    },
+    RepresentationType.THRESHOLD: {
+        "minimum",
+        "maximum",
+        "opacity",
+        "specular",
+        "representation",
+        "mapScalars",
+        "scalarArray",
         "colorByArray",
         "colorByArrayName",
     },

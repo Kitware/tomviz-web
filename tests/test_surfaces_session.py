@@ -155,3 +155,72 @@ async def run_contour(path):
 
 def test_contour(two_arrays, app_args):  # noqa: ARG001
     asyncio.run(run_contour(two_arrays))
+
+
+# ---- threshold -----------------------------------------------------------------
+
+
+def voxels(values, low, high):
+    return int(np.count_nonzero((values >= low) & (values <= high)))
+
+
+async def run_threshold(path):
+    from tomviz_web.app.utils.data import threshold_seed
+
+    app, serve = await start(path, "threshold-session")
+    manager, state = app.ctx.pipeline, app.server.state
+    try:
+        model = data_model.get_instance(
+            manager.add_sink(state.active_view_id, "THRESHOLD")
+        )
+        await wait_idle(manager)
+        representation = model.representation
+        mapper, prop = representation.mapper, representation.property
+        render_window = model.view.vtk_view.render_window
+        dataset = model.source_port.payload
+        radius, ramp = dataset.scalars("radius"), dataset.scalars("ramp")
+
+        # ---- a new threshold: the brightest voxels, up to the maximum
+        assert model.Minimum == pytest.approx(threshold_seed(radius))
+        assert model.Maximum == pytest.approx(float(radius.max()))
+        assert model.ScalarRange == pytest.approx(
+            (float(radius.min()), float(radius.max()))
+        )
+        assert prop.GetSpecular() == 0
+        # one cell per voxel: exactly the voxels in range are kept
+        representation.threshold.Update()
+        kept = representation.threshold.GetOutput().GetNumberOfCells()
+        assert kept == voxels(radius, model.Minimum, model.Maximum)
+        assert kept > 0
+        # colored per voxel by the map's array
+        assert mapper.GetScalarModeAsString() == "UseCellFieldData"
+        assert mapper.GetArrayName() == "radius"
+        assert surface(representation).GetCellData().GetArray("radius") is not None
+        render_window.Render()
+
+        # ---- another range and another array
+        model.ThresholdBy = "ramp"
+        model.Minimum, model.Maximum = 20.0, 40.0
+        model.Mode = "Points"
+        model.Opacity = 0.5
+        await settle()
+        assert model.ScalarRange == pytest.approx((0.0, 100.0))
+        representation.threshold.Update()
+        kept = representation.threshold.GetOutput().GetNumberOfCells()
+        assert kept == voxels(ramp, 20.0, 40.0)
+        assert prop.GetRepresentationAsString() == "Points"
+        model.color_opacity.active_data_array = "ramp"
+        await settle()
+        assert mapper.GetArrayName() == "ramp"
+        render_window.Render()
+
+        # ---- an array index from a desktop state file becomes its name
+        model.ThresholdBy = 0
+        await settle()
+        assert model.ThresholdBy == "radius"
+    finally:
+        await stop(app, serve)
+
+
+def test_threshold(two_arrays, app_args):  # noqa: ARG001
+    asyncio.run(run_threshold(two_arrays))

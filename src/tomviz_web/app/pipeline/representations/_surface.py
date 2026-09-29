@@ -146,8 +146,8 @@ class SurfaceRepresentation(Representation):
 
     # ---- arrays ------------------------------------------------------------
 
-    def array_names(self) -> list[str]:
-        image = self.image
+    def array_names(self, image=None) -> list[str]:
+        image = image if image is not None else self.image
         if image is None:
             return []
         point_data = image.GetPointData()
@@ -155,15 +155,16 @@ class SurfaceRepresentation(Representation):
             point_data.GetArrayName(i) for i in range(point_data.GetNumberOfArrays())
         ]
 
-    def resolve_array(self, name) -> str:
-        """``name`` when the image has it (an index from an old state file
-        is looked up), else the image's active scalars."""
-        names = self.array_names()
+    def resolve_array(self, name, image=None) -> str:
+        """``name`` when the image (default: the current one) has it (an
+        index from a desktop state file is looked up), else the image's
+        active scalars."""
+        image = image if image is not None else self.image
+        names = self.array_names(image)
         if isinstance(name, int) and 0 <= name < len(names):
             return names[name]
         if isinstance(name, str) and name in names:
             return name
-        image = self.image
         scalars = image.GetPointData().GetScalars() if image is not None else None
         return scalars.GetName() if scalars is not None else ""
 

@@ -689,3 +689,53 @@ class ContourSinkNodeModel(FieldSyncMixin, ColorOpacityMixin, SinkNodeModel):
         self.push()
         self.pull()
         self.render()
+
+
+# -----------------------------------------------------------------------------
+class ThresholdSinkNodeModel(FieldSyncMixin, ColorOpacityMixin, SinkNodeModel):
+    """The voxels in a range (see ``ThresholdRepresentation``), with the
+    desktop's settings. ``Minimum`` and ``Maximum`` None: the brightest
+    voxels once data comes. Colored per voxel by its color map's array."""
+
+    # Color/Opacity properties
+    color_opacity = Sync(ColorOpacityModel, has_dataclass=True)
+    use_internal_color_opacity = Sync(bool, False)
+
+    # "" = the data's active array; an index from a desktop state file
+    # until data arrives
+    ThresholdBy = Sync(str, "", type_checking=TypeValidation.SKIP)
+    Minimum = Sync(float, None, type_checking=TypeValidation.SKIP)
+    Maximum = Sync(float, None, type_checking=TypeValidation.SKIP)
+    Mode = Sync(str, "Surface")  # Surface, Wireframe, Points
+    Opacity = Sync(float, 1.0)
+    Specular = Sync(float, 0.0)
+    MapScalars = Sync(bool, True)
+
+    # Read-only
+    ScalarRange = Sync(tuple[float, float], (0.0, 1.0))
+    ArrayNames = Sync(list[str], list)
+
+    FIELDS = (
+        "ThresholdBy",
+        "Minimum",
+        "Maximum",
+        "Mode",
+        "Opacity",
+        "Specular",
+        "MapScalars",
+    )
+
+    def __init__(self, server, **kwargs):
+        self.pre_init_color_opacity()
+        super().__init__(server, **kwargs)
+        self.post_init_color_opacity()
+
+    def pull_status(self):
+        self.ScalarRange = self.representation.scalar_range
+        self.ArrayNames = self.representation.array_names()
+
+    @watch(*FIELDS)
+    def _on_prop_change(self, *_):
+        self.push()
+        self.pull()
+        self.render()

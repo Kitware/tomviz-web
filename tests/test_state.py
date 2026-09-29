@@ -201,6 +201,28 @@ def test_contour_settings_take_the_desktop_keys():
     assert state.unrestored_sink_settings(entry, RepresentationType.CONTOUR) == []
 
 
+def test_threshold_settings_take_the_desktop_keys():
+    entry = {
+        "minimum": 10,
+        "maximum": 20,
+        "scalarArray": 1,
+        "specular": 0.5,
+        "representation": "Points",
+        "colorByArray": False,
+        "colorByArrayName": "ramp",
+    }
+    assert state.threshold_settings(entry) == {
+        "Minimum": 10.0,
+        "Maximum": 20.0,
+        "ThresholdBy": 1,  # an index, named once data comes
+        "Specular": 0.5,
+        "Mode": "Points",
+    }
+    # both bounds or neither; -1 is the default array
+    assert state.threshold_settings({"minimum": 1, "scalarArray": -1}) == {}
+    assert state.unrestored_sink_settings(entry, RepresentationType.THRESHOLD) == []
+
+
 def test_every_desktop_sink_type_has_a_representation_type():
     for sink_type in ("sink.outline", "sink.slice", "sink.volume"):
         rep_type = state.REPRESENTATION_BY_SINK_TYPE[sink_type]

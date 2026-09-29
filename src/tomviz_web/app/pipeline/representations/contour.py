@@ -75,8 +75,10 @@ class ContourRepresentation(SurfaceRepresentation):
 
     @IsoValue.setter
     def IsoValue(self, value):
-        self._iso_value = None if value is None else float(value)
-        self._apply_contour()
+        """None (the model before data) keeps the value data gave."""
+        if value is not None:
+            self._iso_value = float(value)
+            self._apply_contour()
 
     @property
     def iso_range(self) -> tuple[float, float]:

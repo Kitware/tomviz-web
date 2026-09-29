@@ -32,6 +32,7 @@ from .sinks import (
     OutlineSinkNodeModel,
     SinkNodeModel,
     SliceSinkNodeModel,
+    ThresholdSinkNodeModel,
     VolumeSinkNodeModel,
 )
 from .view import ViewModel
@@ -57,6 +58,7 @@ __all__ = [
     "SliceSinkNodeModel",
     "SourceNodeModel",
     "TablePortDataModel",
+    "ThresholdSinkNodeModel",
     "TransformNodeModel",
     "ViewModel",
     "VolumeSinkNodeModel",

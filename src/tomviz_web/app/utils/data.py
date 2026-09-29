@@ -90,6 +90,38 @@ def histogram(
     return [int(c) for c in counts]
 
 
+# A new threshold keeps about this many voxels at most (the desktop's budget)
+THRESHOLD_BUDGET = 250_000
+THRESHOLD_BINS = 4096
+
+
+def threshold_seed(array: np.ndarray) -> float:
+    """Where a new threshold starts, as on the desktop (thresholdSeed): the
+    value above which the brightest voxels lie, at most the budget of them
+    and at most 5 %, among the voxels above the minimum (most of a
+    reconstruction is dim background, and thresholding into that noise
+    makes a huge surface). A 4096-bin histogram, interpolated in its bin."""
+    flat = array.ravel(order="K")
+    if flat.size == 0:
+        return 0.0
+    finite = np.issubdtype(flat.dtype, np.integer) or bool(np.isfinite(flat).all())
+    low = float(flat.min() if finite else np.nanmin(flat))
+    high = float(flat.max() if finite else np.nanmax(flat))
+    if not high > low:
+        return low
+    counts = np.asarray(histogram(flat, THRESHOLD_BINS, (low, high)))
+    counts[0] -= int(np.count_nonzero(flat == low))  # the minimum is excluded
+    total = int(counts.sum())
+    if total <= 0:
+        return low
+    fraction = max(0.95, 1.0 - THRESHOLD_BUDGET / flat.size)
+    target = fraction * total
+    below = np.concatenate(([0], np.cumsum(counts)[:-1]))
+    index = int(np.argmax(below + counts >= target))
+    within = (target - below[index]) / counts[index] if counts[index] else 0.0
+    return low + (index + within) * (high - low) / THRESHOLD_BINS
+
+
 @dataclass
 class ArrayStatistics:
     range: tuple[float, float]
