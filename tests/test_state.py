@@ -99,6 +99,25 @@ def test_sink_settings_translate_desktop_enums():
     }
 
 
+def test_outline_settings_take_the_desktop_grid_keys():
+    assert state.outline_settings(
+        {
+            "gridColor": [0.9, 0.9, 0.9],
+            "gridVisibility": True,
+            "gridLines": False,
+            "useCustomAxesTitles": True,
+            "customXTitle": "Width",
+        }
+    ) == {
+        "Color": "#e6e6e6",
+        "ShowGridAxes": True,
+        "ShowGrid": False,
+        "UseCustomAxesTitles": True,
+        "XTitle": "Width",
+    }
+    assert state.outline_settings({"gridColor": [1, 2]}) == {}
+
+
 def test_every_desktop_sink_type_has_a_representation_type():
     for sink_type in ("sink.outline", "sink.slice", "sink.volume"):
         rep_type = state.REPRESENTATION_BY_SINK_TYPE[sink_type]

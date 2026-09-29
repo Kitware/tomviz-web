@@ -82,6 +82,11 @@ def state_dict(tiff_path):
                     "inputPorts": {"volume": {"type": ["ImageData"]}},
                     "visible": False,
                     "viewId": VIEW_ID,
+                    "gridColor": [1.0, 0.0, 0.0],
+                    "gridVisibility": True,
+                    "gridLines": True,
+                    "useCustomAxesTitles": True,
+                    "customXTitle": "Width",
                 },
             ],
             "links": [
@@ -188,6 +193,20 @@ async def run_session(tvsm, tvh5):
         assert executed[0] == 1  # the reader ran first
         assert set(executed) == {1, 2, 3, 4}
 
+        # ---- the outline's axes follow its visibility; hiding the axes
+        # turns the grid and the custom titles off, as on the desktop
+        outline = sinks_of(manager)[4]
+        grid_axes = outline.representation.grid_axes
+        outline.Visibility = True
+        await asyncio.sleep(0.1)
+        assert grid_axes.GetVisibility()
+        outline.ShowGridAxes = False
+        await asyncio.sleep(0.1)
+        assert not grid_axes.GetVisibility()
+        assert (outline.ShowGrid, outline.UseCustomAxesTitles) == (False, False)
+        assert not grid_axes.GetGenerateGrid()
+        assert grid_axes.GetXTitle() == "X"
+
         # ---- .tvh5 in the same session: reset, then only the sinks run
         executed.clear()
         await manager.load_state_file(tvh5)
@@ -242,6 +261,17 @@ def check_session(manager, server):
     assert representation.actor.visibility
     assert outline.Visibility is False
     assert not outline.representation.actor.visibility
+    assert (outline.Color, outline.ShowGridAxes, outline.ShowGrid) == (
+        "#ff0000",
+        True,
+        True,
+    )
+    grid_axes = outline.representation.grid_axes
+    assert not grid_axes.GetVisibility()  # hidden with the outline
+    assert grid_axes.GetGenerateGrid()
+    assert grid_axes.GetGridBounds() == (0.0, 2.0, 0.0, 3.0, 0.0, 4.0)
+    assert (grid_axes.GetXTitle(), grid_axes.GetYTitle()) == ("Width", "Y")
+    assert outline.representation.property.GetColor() == (1.0, 0.0, 0.0)
 
     color_map = port.color_opacity
     assert color_map.color_space == "Lab"

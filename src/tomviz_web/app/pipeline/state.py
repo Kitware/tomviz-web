@@ -39,6 +39,7 @@ from tomviz_web.app.pipeline.graph import data_port_of, is_data_node, primary_up
 from tomviz_web.app.pipeline.layout import dockview_layout
 from tomviz_web.app.pipeline.nodes import INPUT_PORT, RepresentationSinkNode
 from tomviz_web.app.pipeline.representations import RepresentationType
+from tomviz_web.app.utils.colors import rgb_to_hex
 
 if TYPE_CHECKING:
     from tomviz_web.app.pipeline.manager import PipelineManager
@@ -82,6 +83,25 @@ def background_of(view_entry: dict, raw: dict):
     return (float(color[0]), float(color[1]), float(color[2]))
 
 
+def outline_settings(entry: dict) -> dict:
+    settings = {}
+    color = entry.get("gridColor")
+    if isinstance(color, list) and len(color) == 3:
+        settings["Color"] = rgb_to_hex(tuple(float(c) for c in color))
+    for key, field in (
+        ("gridVisibility", "ShowGridAxes"),
+        ("gridLines", "ShowGrid"),
+        ("useCustomAxesTitles", "UseCustomAxesTitles"),
+    ):
+        if key in entry:
+            settings[field] = bool(entry[key])
+    for axis in "XYZ":
+        key = f"custom{axis}Title"
+        if key in entry:
+            settings[f"{axis}Title"] = str(entry[key])
+    return settings
+
+
 def slice_settings(entry: dict) -> dict:
     settings = {}
     direction = SLICE_DIRECTIONS.get(entry.get("direction"))
@@ -114,6 +134,7 @@ def volume_settings(entry: dict) -> dict:
 
 
 SINK_SETTINGS = {
+    RepresentationType.OUTLINE: outline_settings,
     RepresentationType.SLICE: slice_settings,
     RepresentationType.VOLUME: volume_settings,
 }
@@ -133,6 +154,15 @@ COMMON_SINK_KEYS = {
     "useDetachedColorMap",
 }
 SINK_KEYS = {
+    RepresentationType.OUTLINE: {
+        "gridColor",
+        "gridVisibility",
+        "gridLines",
+        "useCustomAxesTitles",
+        "customXTitle",
+        "customYTitle",
+        "customZTitle",
+    },
     RepresentationType.SLICE: {"direction", "slice", "interpolate"},
     RepresentationType.VOLUME: {"interpolation", "lighting"},
 }

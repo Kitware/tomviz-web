@@ -13,6 +13,7 @@ from loguru import logger
 from trame.app.dataclass import ServerOnly, Sync, TypeValidation, watch
 
 from tomviz_web.app.pipeline.representations.core import Representation
+from tomviz_web.app.utils.colors import hex_to_rgb, rgb_to_hex
 
 from .color_opacity import ColorOpacityModel, create_color_opacity
 from .node import NodeModel
@@ -54,9 +55,7 @@ class SinkNodeModel(NodeModel):
         representation = self.representation
         if representation is None:
             return
-        representation.actor.visibility = bool(
-            self.Visibility and representation.image is not None
-        )
+        representation.set_visible(self.Visibility and representation.image is not None)
 
     def set_source_port(self, port: OutputPortModel):
         """Display another port. Only the model side: the manager re-links
@@ -183,7 +182,63 @@ class ColorOpacityMixin:
 
 # -----------------------------------------------------------------------------
 class OutlineSinkNodeModel(SinkNodeModel):
-    """Bounding box of the input; visibility is its only property."""
+    """Bounding box of the input, with the desktop's optional grid axes.
+
+    The axes are titled X, Y and Z unless custom titles are on (the desktop
+    appends the data's units, which the pipeline does not carry). Turning
+    the axes off turns the grid and the custom titles off with them, as the
+    desktop's panel does."""
+
+    Color = Sync(str, "#e6e6e6")  # box, axes and titles
+    ShowGridAxes = Sync(bool, False)
+    ShowGrid = Sync(bool, False)  # grid lines on the axes' faces
+    UseCustomAxesTitles = Sync(bool, False)
+    XTitle = Sync(str, "X")
+    YTitle = Sync(str, "Y")
+    ZTitle = Sync(str, "Z")
+
+    DEFAULT_TITLES = ("X", "Y", "Z")
+
+    def pull(self):
+        super().pull()
+        if self.representation is None:
+            return
+
+        self.Color = rgb_to_hex(self.representation.Color)
+        self.ShowGridAxes = bool(self.representation.ShowGridAxes)
+        self.ShowGrid = bool(self.representation.ShowGrid)
+
+    def push(self):
+        if self.representation is None:
+            return
+
+        self.representation.Color = hex_to_rgb(self.Color)
+        self.representation.ShowGridAxes = self.ShowGridAxes
+        self.representation.ShowGrid = self.ShowGrid
+        self.representation.Titles = (
+            (self.XTitle, self.YTitle, self.ZTitle)
+            if self.UseCustomAxesTitles
+            else self.DEFAULT_TITLES
+        )
+
+    @watch("ShowGridAxes")
+    def _on_show_grid_axes_change(self, show):
+        if not show:
+            self.ShowGrid = False
+            self.UseCustomAxesTitles = False
+
+    @watch(
+        "Color",
+        "ShowGridAxes",
+        "ShowGrid",
+        "UseCustomAxesTitles",
+        "XTitle",
+        "YTitle",
+        "ZTitle",
+    )
+    def _on_prop_change(self, *_):
+        self.push()
+        self.render()
 
 
 # -----------------------------------------------------------------------------

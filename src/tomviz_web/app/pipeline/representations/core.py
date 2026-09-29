@@ -77,7 +77,8 @@ class Representation:
     ``vtkTrivialProducer`` so the VTK pipeline exists before any data does;
     the owning sink node calls ``set_input`` whenever the graph delivers a new
     image. Until then the actor stays hidden so VTK never tries to execute an
-    empty pipeline.
+    empty pipeline. A visualization drawing more than the actor lists the
+    extra props in ``props`` and overrides ``set_visible`` to show them.
     """
 
     def __init__(self, server):
@@ -101,11 +102,19 @@ class Representation:
         producer keeps the last image so VTK never executes empty)."""
         self._image = None
         if self.actor is not None:
-            self.actor.visibility = False
+            self.set_visible(False)
+
+    @property
+    def props(self):
+        """Every prop the visualization adds to its view."""
+        return (self.actor,)
+
+    def set_visible(self, visible: bool):
+        self.actor.visibility = bool(visible)
 
     def attach(self, view):
-        """Add the actor to a ``vtk.view.View``, hidden until data arrives."""
-        self.actor.visibility = False
+        """Add the props to a ``vtk.view.View``, hidden until data arrives."""
+        self.set_visible(False)
         view.add_representation(self)
 
     def detach(self, view):
