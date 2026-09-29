@@ -114,8 +114,43 @@ def test_sink_settings_translate_desktop_enums():
     ) == {
         "InterpolationType": "Linear",
         "Shade": True,
-        "GlobalIlluminationReach": 0.4,
-        "VolumetricScatteringBlending": 1.5,
+        "ShadowReach": 0.4,
+        "VolumetricScattering": 1.5,
+    }
+    assert state.volume_settings(
+        {
+            "blendingMode": 1,
+            "rayJittering": False,
+            "solidity": 0.5,
+            "lighting": {"shadowsEnabled": False, "smoothNormals": True},
+            "cutOut": {"enabled": True, "corner": 5, "position": [0.2, 0.4, 0.6]},
+            "exploded": {
+                "enabled": True,
+                "axis": 3,
+                "direction": [0, 1, 1],
+                "chunks": 6,
+                "gap": 0.5,
+                "offset": -2,
+                "showArrow": False,
+            },
+        }
+    ) == {
+        "BlendMode": "Max",
+        "Jittering": False,
+        "Solidity": 0.5,
+        "ShadowsEnabled": False,
+        "SmoothNormals": True,
+        # the exploded view wins over the cut-out, as on the desktop
+        "CutOutEnabled": False,
+        "CutOutCorner": 5,
+        "CutOutPosition": (0.2, 0.4, 0.6),
+        "ExplodedEnabled": True,
+        "ExplodedAxis": "Custom",
+        "ExplodedDirection": (0.0, 1.0, 1.0),
+        "ExplodedChunks": 6,
+        "ExplodedGap": 0.5,
+        "ExplodedOffset": -2,
+        "ExplodedShowArrow": False,
     }
 
 
@@ -193,9 +228,10 @@ def test_unrestored_settings_report_only_what_the_loader_skips():
     volume_entry = {
         "interpolation": 1,
         "activeScalars": "Other",
-        "lighting": {"enabled": True, "ambient": 0.1},
+        "lighting": {"enabled": True, "ambient": 0.1, "glow": 1.0},
+        "cutOut": {"enabled": False},
     }
     assert state.unrestored_sink_settings(volume_entry, RepresentationType.VOLUME) == [
         "activeScalars",
-        "lighting.ambient",
+        "lighting.glow",
     ]

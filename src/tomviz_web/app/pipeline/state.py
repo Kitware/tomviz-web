@@ -41,7 +41,9 @@ from tomviz_web.app.pipeline.layout import dockview_layout
 from tomviz_web.app.pipeline.nodes import INPUT_PORT, RepresentationSinkNode
 from tomviz_web.app.pipeline.representations import RepresentationType
 from tomviz_web.app.pipeline.representations.slice import THICK_SLICE_MODES
+from tomviz_web.app.pipeline.representations.volume import BLEND_MODES
 from tomviz_web.app.utils.colors import rgb_to_hex
+from tomviz_web.app.utils.volume import EXPLODED_AXES
 
 if TYPE_CHECKING:
     from tomviz_web.app.pipeline.manager import PipelineManager
@@ -150,16 +152,63 @@ def volume_settings(entry: dict) -> dict:
     interpolation = VOLUME_INTERPOLATION.get(entry.get("interpolation"))
     if interpolation is not None:
         settings["InterpolationType"] = interpolation
+    mode = entry.get("blendingMode")
+    if isinstance(mode, int) and 0 <= mode < len(BLEND_MODES):
+        settings["BlendMode"] = BLEND_MODES[mode]
+    if "rayJittering" in entry:
+        settings["Jittering"] = bool(entry["rayJittering"])
+    if "solidity" in entry:
+        settings["Solidity"] = float(entry["solidity"])
+
     lighting = entry.get("lighting") or {}
-    if "enabled" in lighting:
-        settings["Shade"] = bool(lighting["enabled"])
-    if "shadowReach" in lighting:
-        settings["GlobalIlluminationReach"] = float(lighting["shadowReach"])
-    if "scattering" in lighting:
-        settings["VolumetricScatteringBlending"] = float(lighting["scattering"])
-    if "anisotropy" in lighting:
-        settings["VolumeAnisotropy"] = float(lighting["anisotropy"])
+    for key, field, kind in LIGHTING_SETTINGS:
+        if key in lighting:
+            settings[field] = kind(lighting[key])
+
+    cut_out = entry.get("cutOut") or {}
+    if "enabled" in cut_out:
+        settings["CutOutEnabled"] = bool(cut_out["enabled"])
+    if "corner" in cut_out:
+        settings["CutOutCorner"] = min(max(int(cut_out["corner"]), 0), 7)
+    position = vector3(cut_out.get("position"))
+    if position is not None:
+        settings["CutOutPosition"] = position
+
+    exploded = entry.get("exploded") or {}
+    axis = exploded.get("axis")
+    if isinstance(axis, int) and 0 <= axis < len(EXPLODED_AXES):
+        settings["ExplodedAxis"] = EXPLODED_AXES[axis]
+    direction = vector3(exploded.get("direction"))
+    if direction is not None:
+        settings["ExplodedDirection"] = direction
+    for key, field, kind in EXPLODED_SETTINGS:
+        if key in exploded:
+            settings[field] = kind(exploded[key])
+    if settings.get("ExplodedEnabled"):
+        settings["CutOutEnabled"] = False  # the desktop's precedence
     return settings
+
+
+# (state key, model field, type) of the volume's "lighting" and "exploded"
+LIGHTING_SETTINGS = (
+    ("enabled", "Shade", bool),
+    ("ambient", "Ambient", float),
+    ("diffuse", "Diffuse", float),
+    ("specular", "Specular", float),
+    ("specularPower", "SpecularPower", float),
+    ("scattering", "VolumetricScattering", float),
+    ("shadowsEnabled", "ShadowsEnabled", bool),
+    ("shadowReach", "ShadowReach", float),
+    ("anisotropy", "ScatteringAnisotropy", float),
+    ("smoothNormals", "SmoothNormals", bool),
+)
+EXPLODED_SETTINGS = (
+    ("enabled", "ExplodedEnabled", bool),
+    ("showArrow", "ExplodedShowArrow", bool),
+    ("chunks", "ExplodedChunks", int),
+    ("gap", "ExplodedGap", float),
+    ("offset", "ExplodedOffset", int),
+)
 
 
 SINK_SETTINGS = {
@@ -207,9 +256,18 @@ SINK_KEYS = {
         "point1",
         "point2",
     },
-    RepresentationType.VOLUME: {"interpolation", "lighting"},
+    RepresentationType.VOLUME: {
+        "interpolation",
+        "blendingMode",
+        "rayJittering",
+        "solidity",
+        "lighting",
+        "cutOut",
+        "exploded",
+        "labelMapDefaultsApplied",  # label maps have no sink here yet
+    },
 }
-LIGHTING_KEYS = {"enabled", "shadowReach", "scattering", "anisotropy"}
+LIGHTING_KEYS = {key for key, _field, _kind in LIGHTING_SETTINGS}
 PORT_METADATA_KEYS = {"colorOpacityMap", "activeScalars", "label"}
 
 

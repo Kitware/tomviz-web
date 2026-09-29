@@ -18,6 +18,9 @@ the interactor like any VTK widget, ahead of the interactor style.
 Unlike the desktop, a push follows the whole drag rather than each mouse
 step, so a slow drag still moves an axis-aligned slice, and the handles
 keep a constant size on screen through zooming.
+
+Without a slice prop and without the sphere only the arrow is left, which
+is how the volume's exploded view edits its custom direction.
 """
 
 from __future__ import annotations
@@ -86,6 +89,7 @@ class SlicePlaneWidget:
         on_rotate: Callable[[tuple], None],
         on_move: Callable[[tuple], None],
         on_end: Callable[[], None],
+        show_sphere: bool = True,
     ):
         self.interactor = interactor
         self.renderer = renderer
@@ -114,13 +118,14 @@ class SlicePlaneWidget:
         self.arrow_actors = [
             self._actor(source) for source in (*self.lines, *self.cones)
         ]
-        self.sphere_actor = self._actor(self.sphere)
+        self.sphere_actor = self._actor(self.sphere) if show_sphere else None
 
         self.picker = vtkCellPicker()
         self.picker.SetTolerance(PICK_TOLERANCE)
         self.picker.PickFromListOn()
-        for prop in (*self.arrow_actors, self.sphere_actor, slice_prop):
-            self.picker.AddPickList(prop)
+        for prop in (*self.props, slice_prop):
+            if prop is not None:
+                self.picker.AddPickList(prop)
 
         self._observers = {
             event: interactor.AddObserver(event, callback, PRIORITY)
@@ -143,6 +148,8 @@ class SlicePlaneWidget:
 
     @property
     def props(self):
+        if self.sphere_actor is None:
+            return tuple(self.arrow_actors)
         return (*self.arrow_actors, self.sphere_actor)
 
     def finalize(self):
@@ -244,9 +251,9 @@ class SlicePlaneWidget:
         prop = self.picker.GetViewProp()
         if prop in self.arrow_actors:
             state = ROTATING
-        elif prop is self.sphere_actor:
+        elif prop is not None and prop is self.sphere_actor:
             state = MOVING
-        elif prop is self.slice_prop:
+        elif prop is not None and prop is self.slice_prop:
             state = PUSHING
         else:
             return

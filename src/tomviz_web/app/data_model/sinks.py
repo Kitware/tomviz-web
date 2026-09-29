@@ -13,6 +13,14 @@ from trame.app.dataclass import ServerOnly, Sync, TypeValidation, watch
 
 from tomviz_web.app.pipeline.representations.core import Representation
 from tomviz_web.app.utils.colors import hex_to_rgb, rgb_to_hex
+from tomviz_web.app.utils.volume import (
+    LIGHTING_FIELDS,
+    LIGHTING_PRESETS,
+    matching_preset,
+    matching_user_preset,
+    user_preset,
+    user_preset_values,
+)
 
 from .color_opacity import ColorOpacityModel, create_color_opacity
 from .node import NodeModel
@@ -242,16 +250,80 @@ class OutlineSinkNodeModel(SinkNodeModel):
 
 # -----------------------------------------------------------------------------
 class VolumeSinkNodeModel(ColorOpacityMixin, SinkNodeModel):
+    """Volume rendering with the desktop's settings (see
+    ``VolumeRepresentation``). The representation holds the outcome of every
+    setting: ``push`` hands it the panel's values and ``pull`` reads back
+    what it made of them. ``pull_status`` refreshes the read-only fields the
+    panel explains itself with. Lighting presets set the lighting fields;
+    the user's saved presets live in the ``volume_lighting_presets`` state
+    key, remembered in the settings file."""
+
     # Color/Opacity properties
     color_opacity = Sync(ColorOpacityModel, has_dataclass=True)
     use_internal_color_opacity = Sync(bool, False)
 
-    # Volume specific
-    InterpolationType = Sync(str, "Nearest")  # Nearest, Linear, Cubic
-    Shade = Sync(bool, False)
-    GlobalIlluminationReach = Sync(float, 0)  # [0-1]
-    VolumetricScatteringBlending = Sync(float, 0)  # [0-2]
-    VolumeAnisotropy = Sync(float, 0)  # [-1,1]
+    # Volume specific, defaults as on the desktop (the Simple lighting)
+    InterpolationType = Sync(str, "Linear")  # Nearest, Linear
+    BlendMode = Sync(str, "Composite")  # Composite, Max, Min, Average, Additive
+    Solidity = Sync(float, 1.0)  # 1 / scalar opacity unit distance
+    Jittering = Sync(bool, True)
+    Shade = Sync(bool, True)
+    Ambient = Sync(float, 0.1)
+    Diffuse = Sync(float, 0.9)
+    Specular = Sync(float, 0.3)
+    SpecularPower = Sync(float, 30.0)
+    ShadowsEnabled = Sync(bool, True)  # the switch in front of the strength
+    VolumetricScattering = Sync(float, 0.0)  # shadow strength [0-2]
+    ShadowReach = Sync(float, 0.0)  # [0-1]
+    ScatteringAnisotropy = Sync(float, 0.0)  # [-1, 1]
+    SmoothNormals = Sync(bool, False)
+    CutOutEnabled = Sync(bool, False)
+    CutOutCorner = Sync(int, 0)  # bits: 1 high X, 2 high Y, 4 high Z
+    CutOutPosition = Sync(
+        tuple[float, float, float],
+        (0.5, 0.5, 0.5),
+        type_checking=TypeValidation.SKIP,  # edited by the panel as an array
+    )
+    ExplodedEnabled = Sync(bool, False)
+    ExplodedAxis = Sync(str, "Z")  # X, Y, Z, Custom
+    ExplodedDirection = Sync(
+        tuple[float, float, float],
+        (1.0, 1.0, 1.0),
+        type_checking=TypeValidation.SKIP,
+    )
+    ExplodedShowArrow = Sync(bool, True)
+    ExplodedChunks = Sync(int, 4)  # [2-16]
+    ExplodedGap = Sync(float, 0.25)  # [0-1] of the length along the axis
+    ExplodedOffset = Sync(int, 0)  # voxels
+
+    # Read-only: what the panel shows about where the volume is rendered
+    LightingPreset = Sync(str, "Simple")  # the preset matching, or Custom
+    UserLightingPreset = Sync(str, "")  # the saved preset matching
+    ScatteringAvailable = Sync(bool, True)
+    ScatteringUnavailableReason = Sync(str, "")
+    Bricked = Sync(bool, False)
+    MultiVolumeActive = Sync(bool, False)
+    MultiVolumeLead = Sync(bool, False)
+    MultiVolumeLeadLabel = Sync(str, "")
+    ExplodedOffsetLimit = Sync(int, 0)
+
+    FIELDS = (
+        "InterpolationType",
+        "BlendMode",
+        "Solidity",
+        "Jittering",
+        *LIGHTING_FIELDS,
+        "ShadowsEnabled",
+        "CutOutCorner",
+        "CutOutPosition",
+        "ExplodedAxis",
+        "ExplodedDirection",
+        "ExplodedShowArrow",
+        "ExplodedChunks",
+        "ExplodedGap",
+        "ExplodedOffset",
+    )
+    TUPLE_FIELDS = ("CutOutPosition", "ExplodedDirection")
 
     def __init__(self, server, **kwargs):
         self.pre_init_color_opacity()
@@ -260,40 +332,151 @@ class VolumeSinkNodeModel(ColorOpacityMixin, SinkNodeModel):
 
     def pull(self):
         super().pull()
-        if self.representation is None:
+        representation = self.representation
+        if representation is None:
             return
 
-        self.InterpolationType = str(self.representation.InterpolationType)
-        self.Shade = bool(self.representation.Shade)
-        self.GlobalIlluminationReach = float(
-            self.representation.GlobalIlluminationReach
+        for field in (*self.FIELDS, "CutOutEnabled", "ExplodedEnabled"):
+            value = getattr(representation, field)
+            setattr(self, field, tuple(value) if field in self.TUPLE_FIELDS else value)
+        self.pull_status()
+
+    def pull_status(self):
+        representation = self.representation
+        if representation is None:
+            return
+
+        self.Bricked = bool(representation.bricked)
+        self.ScatteringAvailable = bool(representation.scattering_available)
+        self.ScatteringUnavailableReason = representation.scattering_unavailable_reason
+        self.MultiVolumeActive = bool(representation.composited)
+        self.MultiVolumeLead = bool(representation.multi_volume_lead)
+        self.MultiVolumeLeadLabel = representation.multi_volume_lead_label
+        self.ExplodedOffsetLimit = int(representation.exploded_offset_limit)
+        self.pull_presets()
+
+    def pull_presets(self):
+        """Which built-in preset the lighting matches (by the requested
+        shadow strength) and which saved one (by the strength rendering,
+        which is what saving stores), as on the desktop."""
+        self.LightingPreset = matching_preset(self.lighting_values())
+        self.UserLightingPreset = matching_user_preset(
+            self.user_presets, self.rendered_lighting_values()
         )
-        self.VolumetricScatteringBlending = float(
-            self.representation.VolumetricScatteringBlending
-        )
-        self.VolumeAnisotropy = float(self.representation.VolumeAnisotropy)
 
     def push(self):
-        if self.representation is None:
+        representation = self.representation
+        if representation is None:
             return
 
-        self.representation.InterpolationType = self.InterpolationType
-        self.representation.Shade = int(self.Shade)
-        self.representation.GlobalIlluminationReach = self.GlobalIlluminationReach
-        self.representation.VolumetricScatteringBlending = (
-            self.VolumetricScatteringBlending
-        )
-        self.representation.VolumeAnisotropy = self.VolumeAnisotropy
+        for field in self.FIELDS:
+            value = getattr(self, field)
+            setattr(
+                representation,
+                field,
+                tuple(value) if field in self.TUPLE_FIELDS else value,
+            )
+        # The cut-out and the exploded view exclude each other: when both
+        # are asked for, the one just switched on wins.
+        cut_out, exploded = self.CutOutEnabled, self.ExplodedEnabled
+        if cut_out and exploded:
+            if representation.CutOutEnabled:
+                cut_out = False
+            else:
+                exploded = False
+        representation.CutOutEnabled = cut_out
+        representation.ExplodedEnabled = exploded
 
     @watch(
-        "InterpolationType",
-        "Shade",
-        "GlobalIlluminationReach",
-        "VolumetricScatteringBlending",
-        "VolumeAnisotropy",
+        *FIELDS,
+        "CutOutEnabled",
+        "ExplodedEnabled",
     )
     def _on_prop_change(self, *_):
         self.push()
+        self.pull()
+        self.render()
+
+    # ---- lighting presets ------------------------------------------------------
+
+    def lighting_values(self) -> dict:
+        return {field: getattr(self, field) for field in LIGHTING_FIELDS}
+
+    def rendered_lighting_values(self) -> dict:
+        """The lighting with the shadow strength actually rendering: none
+        while shadows are off."""
+        values = self.lighting_values()
+        if not self.ShadowsEnabled:
+            values["VolumetricScattering"] = 0.0
+        return values
+
+    def apply_lighting(self, values: dict):
+        """Set the lighting fields. A preset that casts shadows is a request
+        to see them, so it switches shadows back on."""
+        if values["VolumetricScattering"] > 0:
+            self.ShadowsEnabled = True
+        for field in LIGHTING_FIELDS:
+            setattr(self, field, values[field])
+        self.pull_presets()
+
+    def apply_lighting_preset(self, name: str):
+        preset = LIGHTING_PRESETS.get(name)
+        if preset is not None:
+            self.apply_lighting(preset)
+
+    @property
+    def user_presets(self) -> list:
+        return list(self.server.state.volume_lighting_presets or [])
+
+    def apply_user_lighting_preset(self, name: str):
+        for preset in self.user_presets:
+            if preset.get("name") == name:
+                self.apply_lighting(user_preset_values(preset))
+                return
+
+    def save_user_lighting_preset(self, name: str):
+        """Save the lighting as ``name``, replacing a preset of that name.
+        The shadow strength saved is the one rendering (none while shadows
+        are off), so applying the preset never turns them back on."""
+        name = name.strip()
+        if not name:
+            return
+        presets = [p for p in self.user_presets if p.get("name") != name]
+        presets.append(user_preset(name, self.rendered_lighting_values()))
+        self.server.state.volume_lighting_presets = presets
+        self.pull_presets()
+
+    def rename_user_lighting_preset(self, name: str, new_name: str) -> bool:
+        """False, changing nothing, when there is no such preset, the new
+        name is blank, or another preset has it."""
+        new_name = new_name.strip()
+        names = [p.get("name") for p in self.user_presets]
+        if name not in names or not new_name or new_name in names:
+            return False
+        self.server.state.volume_lighting_presets = [
+            {**p, "name": new_name} if p.get("name") == name else p
+            for p in self.user_presets
+        ]
+        self.pull_presets()
+        return True
+
+    def delete_user_lighting_preset(self, name: str):
+        self.server.state.volume_lighting_presets = [
+            p for p in self.user_presets if p.get("name") != name
+        ]
+        self.pull_presets()
+
+    # ---- exploded view -----------------------------------------------------------
+
+    def set_exploded(self, **fields):
+        """Set exploded view fields and refit the camera around the result,
+        as the desktop does when the user turns it on or changes its axis
+        (a loaded state keeps its camera)."""
+        for field, value in fields.items():
+            setattr(self, field, value)
+        self.push()
+        self.pull()
+        self.reset_camera()
         self.render()
 
 
