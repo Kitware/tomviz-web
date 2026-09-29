@@ -402,6 +402,12 @@ async def run_array_switch_session(emd):
         slice_model = next(s for s in sinks if s.representation_type == "SLICE")
         representation = slice_model.representation
         view = slice_model.view.vtk_view
+        # Without a browser nothing resets the camera (the remote view asks
+        # its client to): fit it here. The slice's handles sit on the plane
+        # center, the pixel sampled.
+        view.reset_camera()
+        slice_model.ShowArrow = False
+        await settle()
         assert active_scalars(representation) == "a"
         ramp = center_color(view)
         assert ramp != (255, 255, 255)

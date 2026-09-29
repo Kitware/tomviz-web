@@ -2,10 +2,42 @@ from trame.ui.html import DivLayout
 from trame.widgets import dataclass, html
 from trame.widgets import vuetify3 as v3
 
+from tomviz_web.app import data_model
 from tomviz_web.app.pipeline import RepresentationType
+from tomviz_web.app.pipeline.representations.slice import THICK_SLICE_MODES
 
 NAME = RepresentationType.SLICE.name
 TEMPLATE = f"rep_{NAME}"
+
+COMPACT = {"density": "compact", "hide_details": True}
+
+
+def set_normal_to_view(representation_id):
+    model = data_model.get_instance(representation_id)
+    if model is not None:
+        model.set_normal_to_view()
+
+
+def vector_fields(field, label):
+    """Three number fields editing one component each of ``rep.<field>``,
+    committed on Enter or blur like the desktop's line edits. Only a Custom
+    plane takes them."""
+    v3.VLabel(label, classes="text-caption mt-2 mx-1")
+    with html.Div(classes="d-flex ga-1"):
+        for index, axis in enumerate("XYZ"):
+            value = "parseFloat($event.target.value)"
+            v3.VTextField(
+                label=axis,
+                model_value=(f"Number(rep.{field}[{index}].toPrecision(6))",),
+                change=(
+                    f"Number.isFinite({value}) && (rep.{field} = rep.{field}"
+                    f".map((v, i) => i === {index} ? {value} : v))"
+                ),
+                disabled=("rep.SliceDirection !== 'Custom'",),
+                variant="solo-filled",
+                flat=True,
+                **COMPACT,
+            )
 
 
 class SliceRepresentationUI(DivLayout):
@@ -17,42 +49,101 @@ class SliceRepresentationUI(DivLayout):
             dataclass.Provider(name="rep", instance=("active_representation_id",)),
         ):
             with html.Div(classes="pa-2"):
+                v3.VCheckbox(
+                    label="Color Map Data",
+                    v_model="rep.MapScalars",
+                    **COMPACT,
+                )
+                v3.VCheckbox(
+                    label="Custom Color Opacity",
+                    v_model="rep.use_internal_color_opacity",
+                    **COMPACT,
+                )
+                v3.VDivider(classes="my-2")
+
+                # A new direction starts from the middle slice (-1), as the
+                # desktop re-centers the slice when the direction changes.
                 v3.VSelect(
-                    label="Slice direction",
+                    label="Direction",
                     v_model="rep.SliceDirection",
                     items=("rep.SliceDirections",),
+                    update_modelValue="$event !== 'Custom' && (rep.Slice = -1)",
                     density="comfortable",
                     hide_details=True,
                     variant="solo-filled",
                     flat=True,
                 )
+                with html.Div(v_if="rep.SliceDirection !== 'Custom'"):
+                    with html.Div(classes="d-flex justify-space-between mt-2 mx-1"):
+                        v3.VLabel("Slice")
+                        v3.VLabel("{{ rep.Slice }}")
+                    v3.VSlider(
+                        v_model="rep.Slice",
+                        min=0,
+                        step=1,
+                        max=("rep.SliceMax",),
+                        hide_details=True,
+                        density="comfortable",
+                    )
+                    with html.Div(classes="d-flex justify-space-between mb-2 mx-1"):
+                        v3.VLabel("0", classes="text-caption")
+                        v3.VLabel("{{ rep.SliceMax }}", classes="text-caption")
+
+                v3.VNumberInput(
+                    label="Slice Thickness",
+                    v_model="rep.SliceThickness",
+                    # Bound, not literal: a literal reaches Vuetify as a string
+                    # and the step buttons would concatenate it.
+                    min=("1",),
+                    max=("Math.max(rep.SliceMax, 1)",),
+                    step=("2",),
+                    control_variant="split",
+                    variant="solo-filled",
+                    flat=True,
+                    classes="mt-2",
+                    **COMPACT,
+                )
+                v3.VSelect(
+                    label="Aggregation",
+                    v_model="rep.ThickSliceMode",
+                    items=("slice_thick_slice_modes", list(THICK_SLICE_MODES)),
+                    variant="solo-filled",
+                    flat=True,
+                    classes="mt-2",
+                    **COMPACT,
+                )
+
                 with html.Div(classes="d-flex justify-space-between mt-2 mx-1"):
-                    v3.VLabel("Slice index")
-                    v3.VLabel("{{ rep.Slice }}")
+                    v3.VLabel("Opacity")
+                    v3.VLabel("{{ rep.Opacity.toFixed(2) }}")
                 v3.VSlider(
-                    v_model="rep.Slice",
+                    v_model="rep.Opacity",
                     min=0,
-                    step=1,
-                    max=("rep.SliceMax",),
+                    max=1,
+                    step=0.01,
                     hide_details=True,
                     density="comfortable",
                 )
-                with html.Div(classes="d-flex justify-space-between mb-2 mx-1"):
-                    v3.VLabel("0", classes="text-caption")
-                    v3.VLabel("{{ rep.SliceMax }}", classes="text-caption")
                 v3.VCheckbox(
-                    label="Interpolate",
+                    label="Interpolate Texture",
                     v_model="rep.Interpolate",
-                    density="comfortable",
-                    hide_details=True,
-                    flat=True,
+                    **COMPACT,
                 )
                 v3.VCheckbox(
-                    label="Custom Color Opacity",
-                    v_model="rep.use_internal_color_opacity",
-                    density="comfortable",
-                    hide_details=True,
-                    flat=True,
+                    label="Show Arrow",
+                    v_model="rep.ShowArrow",
+                    **COMPACT,
+                )
+
+                vector_fields("PlaneCenter", "Point on Plane")
+                vector_fields("PlaneNormal", "Plane Normal")
+                v3.VBtn(
+                    "Set Normal to View",
+                    click=(set_normal_to_view, "[active_representation_id]"),
+                    block=True,
+                    variant="tonal",
+                    classes="mt-2 text-none",
+                    size="small",
                 )
 
 

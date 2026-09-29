@@ -18,8 +18,9 @@ Desktop specifics handled here:
   ``RepresentationSinkNode``s (same node id, same link) and applies their
   settings. Unsupported types stay in the graph as inert nodes with a plain
   ``NodeModel``, so the pipeline widget lists them but nothing shows them.
-- Slice ``direction`` is XY 0, YZ 1, XZ 2, Custom 3; ``activeScalars`` may be
-  the sentinel ``tomviz::DefaultScalars``.
+- Slice ``direction`` is XY 0, YZ 1, XZ 2, Custom 3 (``planeCenter`` and
+  ``planeNormal`` place a Custom plane); ``activeScalars`` may be the
+  sentinel ``tomviz::DefaultScalars``.
 """
 
 from __future__ import annotations
@@ -39,6 +40,7 @@ from tomviz_web.app.pipeline.graph import data_port_of, is_data_node, primary_up
 from tomviz_web.app.pipeline.layout import dockview_layout
 from tomviz_web.app.pipeline.nodes import INPUT_PORT, RepresentationSinkNode
 from tomviz_web.app.pipeline.representations import RepresentationType
+from tomviz_web.app.pipeline.representations.slice import THICK_SLICE_MODES
 from tomviz_web.app.utils.colors import rgb_to_hex
 
 if TYPE_CHECKING:
@@ -47,7 +49,7 @@ if TYPE_CHECKING:
 STATE_EXTENSIONS = (".tvsm", ".tvh5")
 
 DEFAULT_SCALARS = "tomviz::DefaultScalars"
-SLICE_DIRECTIONS = {0: "XY Plane", 1: "YZ Plane", 2: "XZ Plane"}  # 3 = Custom
+SLICE_DIRECTIONS = {0: "XY Plane", 1: "YZ Plane", 2: "XZ Plane", 3: "Custom"}
 VOLUME_INTERPOLATION = {0: "Nearest", 1: "Linear"}
 REPRESENTATION_BY_SINK_TYPE = {t.sink_type: t for t in RepresentationType}
 
@@ -102,6 +104,16 @@ def outline_settings(entry: dict) -> dict:
     return settings
 
 
+def vector3(value):
+    """A saved ``[x, y, z]`` as a float triple, or None."""
+    if isinstance(value, list) and len(value) == 3:
+        try:
+            return tuple(float(c) for c in value)
+        except (TypeError, ValueError):
+            return None
+    return None
+
+
 def slice_settings(entry: dict) -> dict:
     settings = {}
     direction = SLICE_DIRECTIONS.get(entry.get("direction"))
@@ -111,8 +123,25 @@ def slice_settings(entry: dict) -> dict:
         settings["SliceDirection"] = direction
     if "slice" in entry:
         settings["Slice"] = int(entry["slice"])
-    if "interpolate" in entry:
-        settings["Interpolate"] = bool(entry["interpolate"])
+    for key, field in (
+        ("interpolate", "Interpolate"),
+        ("showArrow", "ShowArrow"),
+        ("mapScalars", "MapScalars"),
+    ):
+        if key in entry:
+            settings[field] = bool(entry[key])
+    if "opacity" in entry:
+        settings["Opacity"] = float(entry["opacity"])
+    if "sliceThickness" in entry:
+        settings["SliceThickness"] = max(int(entry["sliceThickness"]), 1)
+    mode = entry.get("thickSliceMode")
+    if isinstance(mode, int) and 0 <= mode < len(THICK_SLICE_MODES):
+        settings["ThickSliceMode"] = THICK_SLICE_MODES[mode]
+    # A Custom plane; origin / point1 / point2 describe the same plane.
+    for key, field in (("planeCenter", "PlaneCenter"), ("planeNormal", "PlaneNormal")):
+        value = vector3(entry.get(key))
+        if value is not None:
+            settings[field] = value
     return settings
 
 
@@ -163,7 +192,21 @@ SINK_KEYS = {
         "customYTitle",
         "customZTitle",
     },
-    RepresentationType.SLICE: {"direction", "slice", "interpolate"},
+    RepresentationType.SLICE: {
+        "direction",
+        "slice",
+        "interpolate",
+        "opacity",
+        "sliceThickness",
+        "thickSliceMode",
+        "showArrow",
+        "mapScalars",
+        "planeCenter",
+        "planeNormal",
+        "origin",
+        "point1",
+        "point2",
+    },
     RepresentationType.VOLUME: {"interpolation", "lighting"},
 }
 LIGHTING_KEYS = {"enabled", "shadowReach", "scattering", "anisotropy"}

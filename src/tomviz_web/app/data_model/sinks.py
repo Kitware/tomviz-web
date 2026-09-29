@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from loguru import logger
 from trame.app.dataclass import ServerOnly, Sync, TypeValidation, watch
 
 from tomviz_web.app.pipeline.representations.core import Representation
@@ -300,76 +299,126 @@ class VolumeSinkNodeModel(ColorOpacityMixin, SinkNodeModel):
 
 # -----------------------------------------------------------------------------
 class SliceSinkNodeModel(ColorOpacityMixin, SinkNodeModel):
+    """A slice through the data: axis-aligned, or Custom (any center and
+    normal), with the desktop's thick slicing, opacity, "map scalars" and
+    in-view handles (``ShowArrow``).
+
+    ``Slice`` -1 stands for the middle slice. A new sink starts there, and
+    the panel resets it when the direction changes, which re-centers the
+    slice as the desktop does. The representation resolves it once the
+    extent is known and the resolved index is read back.
+    ``PlaneCenter`` and ``PlaneNormal`` follow the plane in every direction
+    (the panel shows them), but only a Custom plane takes them from the
+    model. Dragging the handles in the view updates the fields through
+    ``pull_plane``."""
+
     # Color/Opacity properties
     color_opacity = Sync(ColorOpacityModel, has_dataclass=True)
     use_internal_color_opacity = Sync(bool, False)
 
     # Slice specific
-    Dimensions = Sync(tuple[int, int, int], (0, 0, 0))
-    Slice = Sync(int, 0)
-    SliceMax = Sync(int, 0)
     SliceDirection = Sync(str, "XY Plane", type_checking=TypeValidation.SKIP)
-    SliceDirections = Sync(tuple[str, str, str], ("YZ Plane", "XZ Plane", "XY Plane"))
+    SliceDirections = Sync(
+        tuple[str, str, str, str], ("XY Plane", "YZ Plane", "XZ Plane", "Custom")
+    )
+    Slice = Sync(int, -1)
+    SliceMax = Sync(int, 0)
+    # Edited by the panel as JSON arrays: no tuple validation.
+    PlaneCenter = Sync(
+        tuple[float, float, float],
+        (0.0, 0.0, 0.0),
+        type_checking=TypeValidation.SKIP,
+    )
+    PlaneNormal = Sync(
+        tuple[float, float, float],
+        (0.0, 0.0, 1.0),
+        type_checking=TypeValidation.SKIP,
+    )
     Interpolate = Sync(bool, False)  # linear (on) or nearest sampling
+    Opacity = Sync(float, 1.0)
+    SliceThickness = Sync(int, 1)  # slices combined along the normal
+    ThickSliceMode = Sync(str, "Mean")  # Minimum, Maximum, Mean, Summation
+    MapScalars = Sync(bool, True)  # off: raw values in gray
+    ShowArrow = Sync(bool, True)  # the in-view handles
 
     def __init__(self, server, **kwargs):
         self.pre_init_color_opacity()
         super().__init__(server, **kwargs)
         self.post_init_color_opacity()
 
+    @property
+    def is_custom(self):
+        return self.SliceDirection == "Custom"
+
     def pull(self):
         super().pull()
         if self.representation is None:
             return
 
-        # The port describes the data before the sink gets it (the manager
-        # posts the description first), so read the extent there.
-        image = self.source_port.image if self.source_port else None
-        extent = image.extent if image is not None else (0,) * 6
-        self.Dimensions = (
-            max(extent[1] - extent[0], 0),
-            max(extent[3] - extent[2], 0),
-            max(extent[5] - extent[4], 0),
-        )
-        logger.debug("extent {}", extent)
-        logger.debug("Dimensions {}", self.Dimensions)
+        representation = self.representation
+        self.Interpolate = bool(representation.Interpolate)
+        self.Opacity = float(representation.Opacity)
+        self.SliceThickness = int(representation.SliceThickness)
+        self.ThickSliceMode = str(representation.ThickSliceMode)
+        self.MapScalars = bool(representation.MapScalars)
+        self.ShowArrow = bool(representation.ShowArrow)
+        self.pull_plane()
 
-        self.Slice = self.representation.Slice
-        self.SliceDirection = self.representation.SliceDirection
-        self.Interpolate = bool(self.representation.Interpolate)
+    def pull_plane(self):
+        """Read the plane back: the resolved slice index, the direction (the
+        handles may have switched it to Custom) and the plane itself."""
+        representation = self.representation
+        if representation is None:
+            return
 
-        # Update max slice
-        self._on_direction_change(self.SliceDirection)
+        self.SliceDirection = representation.SliceDirection
+        self.Slice = int(representation.Slice)
+        if representation.is_ortho:
+            self.SliceMax = max(representation.slice_count() - 1, 0)
+        self.PlaneCenter = tuple(representation.PlaneCenter)
+        self.PlaneNormal = tuple(representation.PlaneNormal)
 
     def push(self):
         if self.representation is None:
             return
 
-        self.representation.SliceDirection = self.SliceDirection
-        self.representation.Slice = self.Slice
-        self.representation.Interpolate = self.Interpolate
+        representation = self.representation
+        if self.is_custom:
+            representation.PlaneCenter = tuple(self.PlaneCenter)
+            representation.PlaneNormal = tuple(self.PlaneNormal)
+        representation.SliceDirection = self.SliceDirection
+        representation.Slice = self.Slice
+        representation.Interpolate = self.Interpolate
+        representation.Opacity = self.Opacity
+        representation.SliceThickness = self.SliceThickness
+        representation.ThickSliceMode = self.ThickSliceMode
+        representation.MapScalars = self.MapScalars
+        representation.ShowArrow = self.ShowArrow
 
-    @watch("SliceDirection")
-    def _on_direction_change(self, direction):
-        if direction is None:
+    def set_normal_to_view(self):
+        """Make the plane face the camera (the desktop's button): a Custom
+        plane through the current center along the view direction."""
+        camera = self.view.vtk_view.renderer.GetActiveCamera()
+        position, focal_point = camera.GetPosition(), camera.GetFocalPoint()
+        normal = tuple(f - p for f, p in zip(focal_point, position, strict=True))
+        if not any(normal):
             return
-        self.SliceMax = self.Dimensions[self.SliceDirections.index(direction)]
-        logger.debug("SliceMax {}", self.SliceMax)
-        # No data yet means no known bounds: keep a slice set ahead of the
-        # data (a loaded state) instead of clamping it to 0.
-        if self.SliceMax > 0 and self.Slice > self.SliceMax:
-            self.Slice = 0
+        self.PlaneNormal = normal
+        self.SliceDirection = "Custom"
 
+    @watch(
+        "SliceDirection",
+        "Slice",
+        "PlaneCenter",
+        "PlaneNormal",
+        "Interpolate",
+        "Opacity",
+        "SliceThickness",
+        "ThickSliceMode",
+        "MapScalars",
+        "ShowArrow",
+    )
+    def _on_prop_change(self, *_):
         self.push()
-        self.render()
-
-    @watch("Slice")
-    def _on_slice_change(self, _):
-        logger.debug("Slice {}", self.Slice)
-        self.push()
-        self.render()
-
-    @watch("Interpolate")
-    def _on_interpolate_change(self, _):
-        self.push()
+        self.pull_plane()
         self.render()

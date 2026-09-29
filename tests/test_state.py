@@ -85,7 +85,27 @@ def test_sink_settings_translate_desktop_enums():
         "Slice": 7,
         "Interpolate": True,
     }
-    assert state.slice_settings({"direction": 3}) == {}  # Custom: unsupported
+    assert state.slice_settings(
+        {
+            "direction": 3,
+            "planeCenter": [1, 2, 3],
+            "planeNormal": [0, 1, 1],
+            "opacity": 0.5,
+            "sliceThickness": 3,
+            "thickSliceMode": 1,
+            "showArrow": False,
+            "mapScalars": False,
+        }
+    ) == {
+        "SliceDirection": "Custom",
+        "PlaneCenter": (1.0, 2.0, 3.0),
+        "PlaneNormal": (0.0, 1.0, 1.0),
+        "Opacity": 0.5,
+        "SliceThickness": 3,
+        "ThickSliceMode": "Maximum",
+        "ShowArrow": False,
+        "MapScalars": False,
+    }
     assert state.volume_settings(
         {
             "interpolation": 1,
@@ -164,10 +184,10 @@ def test_unrestored_settings_report_only_what_the_loader_skips():
         "activeScalars": "tomviz::DefaultScalars",
         "thickSliceMode": 2,
         "opacity": 1,
+        "linked": False,
     }
     assert state.unrestored_sink_settings(slice_entry, RepresentationType.SLICE) == [
-        "opacity",
-        "thickSliceMode",
+        "linked",
     ]
 
     volume_entry = {
