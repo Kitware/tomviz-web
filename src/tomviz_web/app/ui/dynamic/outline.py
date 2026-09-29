@@ -3,6 +3,7 @@ from trame.widgets import dataclass, html
 from trame.widgets import vuetify3 as v3
 
 from tomviz_web.app.pipeline import RepresentationType
+from tomviz_web.app.ui.dynamic._widgets import color_picker
 
 NAME = RepresentationType.OUTLINE.name
 TEMPLATE = f"rep_{NAME}"
@@ -17,25 +18,7 @@ class OutlineRepresentationUI(DivLayout):
             dataclass.Provider(name="rep", instance=("active_representation_id",)),
         ):
             with html.Div(classes="pa-2"):
-                with html.Div(classes="d-flex align-center mx-1"):
-                    v3.VLabel("Color")
-                    v3.VSpacer()
-                    with v3.VMenu(close_on_content_click=False):
-                        with v3.Template(v_slot_activator="{ props }"):
-                            v3.VBtn(
-                                v_bind="props",
-                                color=("rep.Color",),
-                                size="small",
-                                variant="flat",
-                                classes="border-thin",
-                                width=48,
-                            )
-                        v3.VColorPicker(
-                            v_model="rep.Color",
-                            modes=("['rgb', 'hex']",),
-                            mode="hex",
-                            show_swatches=False,
-                        )
+                color_picker("Color", "Color")
                 v3.VCheckbox(
                     label="Show Axes",
                     v_model="rep.ShowGridAxes",

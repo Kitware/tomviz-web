@@ -28,6 +28,7 @@ from .port_data import (
     register_port_data_model,
 )
 from .sinks import (
+    ContourSinkNodeModel,
     OutlineSinkNodeModel,
     SinkNodeModel,
     SliceSinkNodeModel,
@@ -41,6 +42,7 @@ __all__ = [
     "ColorMaps",
     "ColorOpacityModel",
     "ColorPreset",
+    "ContourSinkNodeModel",
     "DataNodeModel",
     "ImagePortDataModel",
     "InputPortModel",

@@ -5,39 +5,16 @@ from trame.widgets import vuetify3 as v3
 from tomviz_web.app import data_model
 from tomviz_web.app.pipeline import RepresentationType
 from tomviz_web.app.pipeline.representations.slice import THICK_SLICE_MODES
+from tomviz_web.app.ui.dynamic._widgets import COMPACT, vector_fields
 
 NAME = RepresentationType.SLICE.name
 TEMPLATE = f"rep_{NAME}"
-
-COMPACT = {"density": "compact", "hide_details": True}
 
 
 def set_normal_to_view(representation_id):
     model = data_model.get_instance(representation_id)
     if model is not None:
         model.set_normal_to_view()
-
-
-def vector_fields(field, label):
-    """Three number fields editing one component each of ``rep.<field>``,
-    committed on Enter or blur like the desktop's line edits. Only a Custom
-    plane takes them."""
-    v3.VLabel(label, classes="text-caption mt-2 mx-1")
-    with html.Div(classes="d-flex ga-1"):
-        for index, axis in enumerate("XYZ"):
-            value = "parseFloat($event.target.value)"
-            v3.VTextField(
-                label=axis,
-                model_value=(f"Number(rep.{field}[{index}].toPrecision(6))",),
-                change=(
-                    f"Number.isFinite({value}) && (rep.{field} = rep.{field}"
-                    f".map((v, i) => i === {index} ? {value} : v))"
-                ),
-                disabled=("rep.SliceDirection !== 'Custom'",),
-                variant="solo-filled",
-                flat=True,
-                **COMPACT,
-            )
 
 
 class SliceRepresentationUI(DivLayout):
@@ -135,8 +112,9 @@ class SliceRepresentationUI(DivLayout):
                     **COMPACT,
                 )
 
-                vector_fields("PlaneCenter", "Point on Plane")
-                vector_fields("PlaneNormal", "Plane Normal")
+                custom_only = "rep.SliceDirection !== 'Custom'"
+                vector_fields("PlaneCenter", "Point on Plane", disabled=custom_only)
+                vector_fields("PlaneNormal", "Plane Normal", disabled=custom_only)
                 v3.VBtn(
                     "Set Normal to View",
                     click=(set_normal_to_view, "[active_representation_id]"),

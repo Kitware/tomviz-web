@@ -211,7 +211,47 @@ EXPLODED_SETTINGS = (
 )
 
 
+SURFACE_MODES = ("Surface", "Wireframe", "Points")
+
+
+def surface_settings(entry: dict, floats: tuple[tuple[str, str], ...]) -> dict:
+    """The appearance keys contour and threshold share."""
+    settings = {}
+    for key, field in floats:
+        if key in entry:
+            settings[field] = float(entry[key])
+    if entry.get("representation") in SURFACE_MODES:
+        settings["Mode"] = entry["representation"]
+    if "mapScalars" in entry:
+        settings["MapScalars"] = bool(entry["mapScalars"])
+    return settings
+
+
+def contour_settings(entry: dict) -> dict:
+    settings = surface_settings(
+        entry,
+        (
+            ("contourValue", "IsoValue"),
+            ("opacity", "Opacity"),
+            ("ambient", "Ambient"),
+            ("diffuse", "Diffuse"),
+            ("specular", "Specular"),
+            ("specularPower", "SpecularPower"),
+        ),
+    )
+    if "useSolidColor" in entry:
+        settings["UseSolidColor"] = bool(entry["useSolidColor"])
+    color = entry.get("color")
+    if isinstance(color, str) and len(color) == 7 and color.startswith("#"):
+        settings["Color"] = color.lower()  # QColor::name(), #rrggbb
+    active = entry.get("activeScalars")
+    if isinstance(active, str) and active != DEFAULT_SCALARS:
+        settings["ContourBy"] = active
+    return settings
+
+
 SINK_SETTINGS = {
+    RepresentationType.CONTOUR: contour_settings,
     RepresentationType.OUTLINE: outline_settings,
     RepresentationType.SLICE: slice_settings,
     RepresentationType.VOLUME: volume_settings,
@@ -232,6 +272,22 @@ COMMON_SINK_KEYS = {
     "useDetachedColorMap",
 }
 SINK_KEYS = {
+    RepresentationType.CONTOUR: {
+        "contourValue",
+        "opacity",
+        "ambient",
+        "diffuse",
+        "specular",
+        "specularPower",
+        "representation",
+        "mapScalars",
+        "useSolidColor",
+        "color",
+        "activeScalars",
+        # the sink's own color map's array, see apply_sink_settings
+        "colorByArray",
+        "colorByArrayName",
+    },
     RepresentationType.OUTLINE: {
         "gridColor",
         "gridVisibility",
@@ -552,4 +608,12 @@ def apply_sink_settings(model, representation_type: RepresentationType, entry: d
             detached.get("points", []),
             detached.get("colorSpace", "RGB"),
         )
+        model.use_internal_color_opacity = True
+
+    # The desktop colors a contour or threshold by its own "color by" array
+    # through the port's map; here a color map carries its array, so that
+    # array goes on the sink's own map.
+    color_by = entry.get("colorByArrayName") if entry.get("colorByArray") else None
+    if color_by and internal is not None:
+        internal.active_data_array = str(color_by)
         model.use_internal_color_opacity = True

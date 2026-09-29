@@ -173,8 +173,8 @@ class VolumeRepresentation(Representation):
         self._sync_membership()
         self._update_widget()
 
-    def set_input(self, image):
-        super().set_input(image)
+    def set_input(self, image, prepared=None):
+        super().set_input(image, prepared)
         self._update_mapper_for_input(image)
         self._apply_color_array()
         self._apply_cut_out()

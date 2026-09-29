@@ -5,6 +5,7 @@ from trame.widgets import vuetify3 as v3
 from tomviz_web.app import data_model
 from tomviz_web.app.pipeline import RepresentationType
 from tomviz_web.app.pipeline.representations.volume import BLEND_MODES
+from tomviz_web.app.ui.dynamic._widgets import COMPACT, FILLED, slider, vector_fields
 from tomviz_web.app.utils.volume import (
     CUT_OUT_CORNERS,
     EXPLODED_AXES,
@@ -13,9 +14,6 @@ from tomviz_web.app.utils.volume import (
 
 NAME = RepresentationType.VOLUME.name
 TEMPLATE = f"rep_{NAME}"
-
-COMPACT = {"density": "compact", "hide_details": True}
-FILLED = {"variant": "solo-filled", "flat": True, **COMPACT}
 
 LIGHTING_TIPS = {
     "Flat": "No shading: colors come straight from the color map. Fastest.",
@@ -65,21 +63,6 @@ def set_exploded(representation_id, field, value):
     _model(representation_id).set_exploded(**{field: value})
 
 
-def slider(label, field, lo, hi, step, digits, disabled=None, tooltip=None):
-    with html.Div(classes="d-flex align-center mt-1 mx-1", title=tooltip):
-        v3.VLabel(label, classes="text-body-2")
-        v3.VSpacer()
-        v3.VLabel(f"{{{{ rep.{field}.toFixed({digits}) }}}}", classes="text-body-2")
-    v3.VSlider(
-        v_model=f"rep.{field}",
-        min=lo,
-        max=hi,
-        step=step,
-        disabled=(disabled,) if disabled else False,
-        **COMPACT,
-    )
-
-
 def component_slider(label, field, index):
     """A 0-1 slider editing one component of ``rep.<field>``."""
     with html.Div(classes="d-flex align-center mt-1 mx-1"):
@@ -96,24 +79,6 @@ def component_slider(label, field, index):
         step=0.01,
         **COMPACT,
     )
-
-
-def vector_fields(field, label):
-    """Three number fields editing ``rep.<field>``, committed on Enter or
-    blur."""
-    v3.VLabel(label, classes="text-caption mt-2 mx-1")
-    with html.Div(classes="d-flex ga-1"):
-        for index, axis in enumerate("XYZ"):
-            value = "parseFloat($event.target.value)"
-            v3.VTextField(
-                label=axis,
-                model_value=(f"Number(rep.{field}[{index}].toPrecision(6))",),
-                change=(
-                    f"Number.isFinite({value}) && (rep.{field} = rep.{field}"
-                    f".map((v, i) => i === {index} ? {value} : v))"
-                ),
-                **FILLED,
-            )
 
 
 def section(title, field, tooltip, update=None):

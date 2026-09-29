@@ -123,8 +123,8 @@ class SliceRepresentation(Representation):
         super().detach(view)
         self.widget.finalize()
 
-    def set_input(self, image):
-        super().set_input(image)
+    def set_input(self, image, prepared=None):
+        super().set_input(image, prepared)
         self._apply_color_array()
         self._apply_map_scalars()
         self._update_plane()

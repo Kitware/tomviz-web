@@ -173,6 +173,34 @@ def test_outline_settings_take_the_desktop_grid_keys():
     assert state.outline_settings({"gridColor": [1, 2]}) == {}
 
 
+def test_contour_settings_take_the_desktop_keys():
+    entry = {
+        "contourValue": 12.5,
+        "opacity": 0.5,
+        "specularPower": 20,
+        "representation": "Wireframe",
+        "mapScalars": False,
+        "useSolidColor": True,
+        "color": "#FF8000",
+        "activeScalars": "ramp",
+        "colorByArray": True,
+        "colorByArrayName": "other",
+    }
+    assert state.contour_settings(entry) == {
+        "IsoValue": 12.5,
+        "Opacity": 0.5,
+        "SpecularPower": 20.0,
+        "Mode": "Wireframe",
+        "MapScalars": False,
+        "UseSolidColor": True,
+        "Color": "#ff8000",
+        "ContourBy": "ramp",
+    }
+    assert state.contour_settings({"activeScalars": state.DEFAULT_SCALARS}) == {}
+    # the "color by" array goes on the sink's own map (apply_sink_settings)
+    assert state.unrestored_sink_settings(entry, RepresentationType.CONTOUR) == []
+
+
 def test_every_desktop_sink_type_has_a_representation_type():
     for sink_type in ("sink.outline", "sink.slice", "sink.volume"):
         rep_type = state.REPRESENTATION_BY_SINK_TYPE[sink_type]

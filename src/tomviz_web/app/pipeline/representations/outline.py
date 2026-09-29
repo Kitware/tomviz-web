@@ -97,8 +97,8 @@ class OutlineRepresentation(Representation):
         self.actor.visibility = self._visible
         self.grid_axes.SetVisibility(self._visible and self._show_grid_axes)
 
-    def set_input(self, image):
-        super().set_input(image)
+    def set_input(self, image, prepared=None):
+        super().set_input(image, prepared)
         self.grid_axes.SetGridBounds(image.GetBounds())
 
     @property

@@ -93,7 +93,12 @@ class Representation:
     def image(self) -> vtkImageData | None:
         return self._image
 
-    def set_input(self, image: vtkImageData):
+    def prepare(self, image: vtkImageData):
+        """Worker-thread hook: pure NumPy work on a new image, too slow for
+        the event loop (a percentile, a range). The result reaches
+        ``set_input``. Nothing by default."""
+
+    def set_input(self, image: vtkImageData, prepared=None):  # noqa: ARG002
         self._image = image
         self.producer.SetOutput(image)
 

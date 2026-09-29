@@ -188,6 +188,34 @@ class ColorOpacityMixin:
 
 
 # -----------------------------------------------------------------------------
+class FieldSyncMixin:
+    """``push``/``pull`` for sinks whose representation has one property
+    per synced field in ``FIELDS``; ``pull_status`` refreshes the
+    read-only fields the panel shows."""
+
+    FIELDS: tuple[str, ...] = ()
+
+    def pull(self):
+        super().pull()
+        representation = self.representation
+        if representation is None:
+            return
+        for field in self.FIELDS:
+            setattr(self, field, getattr(representation, field))
+        self.pull_status()
+
+    def pull_status(self):
+        """Read-only fields derived from the representation (subclasses)."""
+
+    def push(self):
+        representation = self.representation
+        if representation is None:
+            return
+        for field in self.FIELDS:
+            setattr(representation, field, getattr(self, field))
+
+
+# -----------------------------------------------------------------------------
 class OutlineSinkNodeModel(SinkNodeModel):
     """Bounding box of the input, with the desktop's optional grid axes.
 
@@ -604,4 +632,60 @@ class SliceSinkNodeModel(ColorOpacityMixin, SinkNodeModel):
     def _on_prop_change(self, *_):
         self.push()
         self.pull_plane()
+        self.render()
+
+
+# -----------------------------------------------------------------------------
+class ContourSinkNodeModel(FieldSyncMixin, ColorOpacityMixin, SinkNodeModel):
+    """An isosurface (see ``ContourRepresentation``), with the desktop's
+    settings. ``IsoValue`` None: two thirds up the range once data comes.
+    The surface is colored by its color map's array."""
+
+    # Color/Opacity properties
+    color_opacity = Sync(ColorOpacityModel, has_dataclass=True)
+    use_internal_color_opacity = Sync(bool, False)
+
+    IsoValue = Sync(float, None, type_checking=TypeValidation.SKIP)
+    ContourBy = Sync(str, "")  # "" = the data's active array
+    Mode = Sync(str, "Surface")  # Surface, Wireframe, Points
+    Opacity = Sync(float, 1.0)
+    Ambient = Sync(float, 0.0)
+    Diffuse = Sync(float, 1.0)
+    Specular = Sync(float, 1.0)
+    SpecularPower = Sync(float, 100.0)
+    Color = Sync(str, "#ffffff")  # the solid color
+    UseSolidColor = Sync(bool, False)
+    MapScalars = Sync(bool, True)
+
+    # Read-only
+    IsoRange = Sync(tuple[float, float], (0.0, 1.0))
+    ArrayNames = Sync(list[str], list)
+
+    FIELDS = (
+        "ContourBy",
+        "IsoValue",
+        "Mode",
+        "Opacity",
+        "Ambient",
+        "Diffuse",
+        "Specular",
+        "SpecularPower",
+        "Color",
+        "UseSolidColor",
+        "MapScalars",
+    )
+
+    def __init__(self, server, **kwargs):
+        self.pre_init_color_opacity()
+        super().__init__(server, **kwargs)
+        self.post_init_color_opacity()
+
+    def pull_status(self):
+        self.IsoRange = self.representation.iso_range
+        self.ArrayNames = self.representation.array_names()
+
+    @watch(*FIELDS)
+    def _on_prop_change(self, *_):
+        self.push()
+        self.pull()
         self.render()
