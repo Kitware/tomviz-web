@@ -18,6 +18,8 @@ from tomviz_pipeline.dataset import Dataset
 from tomviz_pipeline.molecule import Molecule, element_symbol
 from tomviz_pipeline.table import Table
 
+from tomviz_web.app.utils import labels
+
 # Port type strings (tomviz_pipeline) grouped by payload family.
 IMAGE_PORT_TYPES = ("ImageData", "Volume", "TiltSeries", "LabelMap", "Image")
 TABLE_PORT_TYPES = ("Table",)
@@ -146,6 +148,11 @@ class ImageDescription:
     bounds: Bounds = EMPTY_BOUNDS
     memory: int = 0  # KiB, like vtkDataObject::GetActualMemorySize
     statistics: dict[str, ArrayStatistics] = field(default_factory=dict)
+    # Arrays a Label Map could show: integers spanning at most MAX_LABELS
+    # values (utils.labels.can_interpret_as_label_map).
+    label_arrays: list[str] = field(default_factory=list)
+    # A label map port's scan of its active array (data_model.labels)
+    labels: tuple | None = None
 
 
 def describe_dataset(dataset: Dataset, arrays=()) -> ImageDescription:
@@ -170,6 +177,18 @@ def describe_dataset(dataset: Dataset, arrays=()) -> ImageDescription:
     for name in arrays:
         if name in names:
             description.statistics[name] = array_statistics(dataset.scalars(name))
+
+    for name in names:
+        values = dataset.scalars(name)
+        if not labels.is_label_dtype(values.dtype):
+            continue
+        if values.dtype.itemsize > 2:
+            stats = description.statistics.get(name)
+            span = stats.range if stats is not None else value_range(values)
+        else:
+            span = None
+        if labels.can_interpret_as_label_map(values.dtype, span):
+            description.label_arrays.append(name)
 
     return description
 

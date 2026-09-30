@@ -34,6 +34,9 @@ class RepresentationType(Enum):
 
     CLIP = ("clip.svg", "Clip", "sink.clip", IMAGE_PORT_TYPES)
     CONTOUR = ("contour.svg", "Contour", "sink.contour", IMAGE_PORT_TYPES)
+    # Any image: a segmentation read from a file arrives as a plain volume
+    # (the toolbar offers it only for integer data, see label_map.py).
+    LABEL_MAP = ("labelmap.svg", "Label Map", "sink.labelMap", IMAGE_PORT_TYPES)
     MOLECULE = ("molecule.svg", "Molecule", "sink.molecule", MOLECULE_PORT_TYPES)
     OUTLINE = ("outline.svg", "Outline", "sink.outline", IMAGE_PORT_TYPES)
     RULER = ("ruler.svg", "Ruler", "sink.ruler", IMAGE_PORT_TYPES)

@@ -12,6 +12,7 @@ from tomviz_pipeline import InputPort, OutputPort
 from trame.app.dataclass import ServerOnly, StateDataModel, Sync
 
 from .color_opacity import ColorOpacityModel
+from .labels import LabelTableModel, scan_image_labels
 from .node import NodeModel
 from .port_data import ImagePortDataModel, PortDataModel, port_data_model_for
 
@@ -40,6 +41,12 @@ class OutputPortModel(StateDataModel):
     use unless they switch to their own. It stays on the port, not on the
     data, so presets and opacity nodes survive re-execution.
 
+    A ``LabelMap`` port also carries a ``label_table`` (the desktop keeps it
+    in the payload): every description scans the labels of the active
+    array and reconciles the table, and the table is projected onto the
+    port's color map after every change, so every sink coloring through
+    the map shows the labels.
+
     ``persistent``, ``persistence_mode`` and ``data_location`` mirror the
     port's persistence policy and where its payload currently is
     (``pull_location`` refreshes the latter from the port's
@@ -60,6 +67,7 @@ class OutputPortModel(StateDataModel):
     data_location = Sync(str, "none")  # DataLocation value
 
     color_opacity = Sync(ColorOpacityModel, has_dataclass=True)
+    label_table = Sync(LabelTableModel | None, None, has_dataclass=True)
 
     def __init__(self, server, **kwargs):
         self._consumers: list[weakref.ref] = []
@@ -133,7 +141,10 @@ class OutputPortModel(StateDataModel):
             return None
         if requested is None:
             requested = self.requested_keys()
-        return model_class.describe(payload, requested)
+        description = model_class.describe(payload, requested)
+        if self.is_label_map and description.scalars_names:
+            description.labels = scan_image_labels(payload, description.active_scalars)
+        return description
 
     def apply_description(self, description):
         """Install a description (event loop only): update ``data`` in
@@ -150,6 +161,11 @@ class OutputPortModel(StateDataModel):
             self.data = model_class(self.server)
         self.data.port_type = self.port_type
         self.data.apply(description)
+        # Before the consumers: the color map must be showing the labels
+        # when it takes the new statistics, or it rescales them.
+        scan = getattr(description, "labels", None)
+        if scan is not None:
+            self.ensure_label_table().reconcile(scan)
 
         self.has_data = True
         self.data_version = self.data_version + 1
@@ -157,6 +173,25 @@ class OutputPortModel(StateDataModel):
 
         for consumer in self.consumers():
             consumer.on_port_data_changed()
+
+    # ---- label map --------------------------------------------------------
+
+    @property
+    def is_label_map(self) -> bool:
+        port_type = self.port.port_type if self.port is not None else self.port_type
+        return port_type == "LabelMap"
+
+    def ensure_label_table(self) -> LabelTableModel:
+        if self.label_table is None:
+            self.label_table = LabelTableModel(self.server)
+            self.label_table.on_change(self.project_labels)
+        return self.label_table
+
+    def project_labels(self):
+        """Show the label table through the port's color map."""
+        table = self.label_table
+        if table is not None and table.labels and self.color_opacity is not None:
+            self.color_opacity.load_labels(table.labels)
 
     # ---- lazy statistics ------------------------------------------------
 

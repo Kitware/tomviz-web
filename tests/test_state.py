@@ -116,9 +116,12 @@ def test_sink_settings_translate_desktop_enums():
         "Shade": True,
         "ShadowReach": 0.4,
         "VolumetricScattering": 1.5,
+        # a file without the key keeps its settings on a label map port
+        "label_map_defaults_applied": True,
     }
     assert state.volume_settings(
         {
+            "labelMapDefaultsApplied": False,
             "blendingMode": 1,
             "rayJittering": False,
             "solidity": 0.5,
@@ -151,7 +154,32 @@ def test_sink_settings_translate_desktop_enums():
         "ExplodedGap": 0.5,
         "ExplodedOffset": -2,
         "ExplodedShowArrow": False,
+        "label_map_defaults_applied": False,
     }
+
+
+def test_label_map_settings_add_the_representation_and_surface():
+    settings = state.label_map_settings(
+        {
+            "representation": "Surface",
+            "surfaceSmoothing": 8,
+            "surfaceOpacity": 0.5,
+            "volumeLookApplied": False,
+            "lighting": {"ambient": 0.3},
+        }
+    )
+    assert settings["Representation"] == "Surface"
+    assert settings["SurfaceSmoothing"] == 8
+    assert settings["SurfaceOpacity"] == 0.5
+    assert settings["volume_look_applied"] is False
+    assert settings["Ambient"] == 0.3
+    # a file from before the surface existed was showing a volume, and its
+    # lighting is what the user saw
+    older = state.label_map_settings({})
+    assert older["Representation"] == "Volume"
+    assert older["volume_look_applied"] is True
+    entry = {"type": "sink.labelMap", "representation": "Volume", "adoptedLabelMap": {}}
+    assert state.unrestored_sink_settings(entry, RepresentationType.LABEL_MAP) == []
 
 
 def test_outline_settings_take_the_desktop_grid_keys():

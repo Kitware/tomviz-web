@@ -17,6 +17,10 @@ there). Volumes sharing a view are drawn together by the view's
 The representation holds every setting; ``VolumeSinkNodeModel`` pushes the
 panel's values here and reads the outcome back (a switch the data refused,
 the cut-out the exploded view turned off, where the volume is rendered).
+
+On a label map port the first data switches to nearest interpolation and
+shading, once (the desktop's ``labelMapDefaultsApplied``): linear
+interpolation between labels 2 and 6 samples a 4.
 """
 
 from __future__ import annotations
@@ -70,6 +74,8 @@ def _noop(*_):
 
 
 class VolumeRepresentation(Representation):
+    TYPE = RepresentationType.VOLUME
+
     def __init__(
         self,
         pipeline_manager,
@@ -80,6 +86,8 @@ class VolumeRepresentation(Representation):
         self.vtk_view = view.vtk_view
 
         self._visible = False
+        # A half-voxel ray step (a label map's), see _apply_sampling
+        self.fine_sampling = False
         # Mapper-level settings, applied to every mapper (slabs, bricks)
         self._blend_mode = 0
         self._jittering = True
@@ -144,13 +152,15 @@ class VolumeRepresentation(Representation):
         # Slabs composite in prop order: sort them before every render.
         self._sort_observer = renderer.AddObserver("StartEvent", self._sort_slabs)
         self.attach(self.vtk_view)
+        self.model = self.create_model(source_port, view)
 
-        self.model = data_model.VolumeSinkNodeModel(
+    def create_model(self, source_port, view):
+        return data_model.VolumeSinkNodeModel(
             self.server,
             source_port=source_port,
             view=view,
             representation=self,
-            **RepresentationType.VOLUME.model_kwargs,
+            **self.TYPE.model_kwargs,
         )
 
     @property
@@ -180,7 +190,9 @@ class VolumeRepresentation(Representation):
 
     def set_input(self, image, prepared=None):
         super().set_input(image, prepared)
+        self._apply_label_map_defaults()
         self._update_mapper_for_input(image)
+        self._apply_sampling()
         self._apply_color_array()
         self._apply_cut_out()
         self._apply_exploded()
@@ -210,9 +222,52 @@ class VolumeRepresentation(Representation):
         mapper.SetUseJittering(self._jittering)
         mapper.SetGlobalIlluminationReach(self._shadow_reach)
         mapper.SetComputeNormalFromOpacity(self._smooth_normals)
+        self._sample_mapper(mapper)
         name = self.rendered_array
         if name:
             mapper.SelectScalarArray(name)
+
+    # ---- sampling ----------------------------------------------------------------
+
+    @property
+    def fine_step(self) -> float | None:
+        """The ray step fine sampling pins, half the smallest voxel side
+        (None when off): a label has no shading normal past its one-voxel
+        boundary shell, and the first hit should land in it."""
+        image = self.image
+        if not self.fine_sampling or image is None:
+            return None
+        smallest = min(abs(s) for s in image.GetSpacing())
+        return 0.5 * (smallest if smallest > 0 else 1.0)
+
+    def _sample_mapper(self, mapper):
+        step = self.fine_step
+        if step is None:
+            mapper.AutoAdjustSampleDistancesOn()
+            return
+        mapper.AutoAdjustSampleDistancesOff()
+        mapper.SetSampleDistance(step)
+        mapper.SetImageSampleDistance(1.0)
+
+    def _apply_sampling(self):
+        for mapper in self.mappers:
+            self._sample_mapper(mapper)
+        coordinator = MultiVolumeCoordinator.find(self.vtk_view)
+        if coordinator is not None:
+            coordinator.refresh_settings()
+
+    def _apply_label_map_defaults(self):
+        """Nearest interpolation and shading on a label map port's first
+        data; through the model, which pushes its fields right after."""
+        model = self.model
+        if model is None or model.label_map_defaults_applied:
+            return
+        port = model.source_port
+        if port is None or not port.is_label_map:
+            return
+        model.InterpolationType = "Nearest"
+        model.Shade = True
+        model.label_map_defaults_applied = True
 
     def _all_mappers(self):
         """Every mapper, including the bricked one, for shared settings."""

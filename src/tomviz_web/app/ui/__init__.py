@@ -19,6 +19,7 @@ from .drawer_properties import PropertiesSections
 from .drawer_transforms import TransformSelection
 from .dynamic import _widgets as dynamic_widgets
 from .dynamic import initialize_dynamic_ui
+from .dynamic import volume as dynamic_volume
 from .open_data import FileLoader
 from .render_view import RenderWindow
 from .settings import SettingsDialog
@@ -30,6 +31,7 @@ def reload(m=None):
     """Reload ui modules to help with the --hot-reload option of trame"""
     dev_reload(
         dynamic_widgets,  # before the panels, which dynamic re-executes
+        dynamic_volume,  # the label map panel extends it
         color_opacity,
         drawer_color_opacity,
         drawer_transforms,

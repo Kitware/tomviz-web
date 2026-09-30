@@ -23,6 +23,7 @@ from tomviz_web.app.utils.volume import (
 )
 
 from .color_opacity import ColorOpacityModel, create_color_opacity
+from .labels import LabelTableModel
 from .node import NodeModel
 from .port import OutputPortModel
 from .view import ViewModel
@@ -381,6 +382,10 @@ class VolumeSinkNodeModel(ColorOpacityMixin, SinkNodeModel):
     MultiVolumeLeadLabel = Sync(str, "")
     ExplodedOffsetLimit = Sync(int, 0)
 
+    # A label map port's first data switched to nearest interpolation and
+    # shading (the desktop's labelMapDefaultsApplied), see the representation
+    label_map_defaults_applied = ServerOnly(bool, False)
+
     FIELDS = (
         "InterpolationType",
         "BlendMode",
@@ -551,6 +556,75 @@ class VolumeSinkNodeModel(ColorOpacityMixin, SinkNodeModel):
         self.push()
         self.pull()
         self.reset_camera()
+        self.render()
+
+
+# -----------------------------------------------------------------------------
+class LabelMapSinkNodeModel(VolumeSinkNodeModel):
+    """A label map as surfaces or a volume (``LabelMapRepresentation``):
+    the volume's fields (interpolation and blending pinned) plus the
+    representation and the surface's smoothing and opacity.
+    ``label_table`` is the table the sink shows, the port's or its own
+    (``LabelsAdopted``), which the panel edits."""
+
+    Representation = Sync(str, "Surface")  # Surface, Volume
+    SurfaceSmoothing = Sync(int, 16)  # iterations [0-32]
+    SurfaceOpacity = Sync(float, 1.0)
+
+    # Read-only
+    label_table = Sync(LabelTableModel | None, None, has_dataclass=True)
+    LabelsAdopted = Sync(bool, False)
+    LabelsUnsupportedReason = Sync(str, "")
+
+    # The ambient floor was applied once (the desktop's volumeLookApplied)
+    volume_look_applied = ServerOnly(bool, False)
+
+    LABEL_FIELDS = ("Representation", "SurfaceSmoothing", "SurfaceOpacity")
+
+    def pull(self):
+        super().pull()
+        representation = self.representation
+        if representation is None:
+            return
+        for field in self.LABEL_FIELDS:
+            setattr(self, field, getattr(representation, field))
+
+    def pull_status(self):
+        super().pull_status()
+        representation = self.representation
+        if representation is None:
+            return
+        self.label_table = representation.label_table
+        self.LabelsAdopted = bool(representation.adopted)
+        self.LabelsUnsupportedReason = representation.unsupported_reason
+
+    def push(self):
+        super().push()
+        representation = self.representation
+        if representation is None:
+            return
+        for field in self.LABEL_FIELDS:
+            setattr(representation, field, getattr(self, field))
+
+    @watch(*LABEL_FIELDS)
+    def _on_label_prop_change(self, *_):
+        self.push()
+        self.pull()
+        self.render()
+
+    @watch("use_internal_color_opacity")
+    def _on_label_color_map_change(self, use_internal):
+        """The sink's own map shows the labels too. Adopted labels have no
+        other map to go on: the port's belongs to a plain volume."""
+        representation = self.representation
+        if representation is None:
+            return
+        if representation.adopted and not use_internal:
+            # Set back inside the flush that brought the change, the field
+            # would not notify again: rebind by hand.
+            self.use_internal_color_opacity = True
+            self._on_custom_color_opacity_change(True)
+        representation.project_labels()
         self.render()
 
 

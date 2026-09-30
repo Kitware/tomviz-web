@@ -106,6 +106,10 @@ def section(title, field, tooltip, update=None):
 
 
 class VolumeRepresentationUI(DivLayout):
+    # A label map's panel (the desktop's categorical mode): interpolation
+    # and blending are pinned, as any other choice mixes label numbers.
+    CATEGORICAL = False
+
     def __init__(self, server, template_name=TEMPLATE):
         super().__init__(server, template_name=template_name)
 
@@ -114,17 +118,27 @@ class VolumeRepresentationUI(DivLayout):
             dataclass.Provider(name="rep", instance=("active_representation_id",)),
         ):
             with html.Div(classes="pa-2"):
-                self._rendering()
-                self._lighting()
-                self._cut_out()
-                self._exploded()
+                self._content()
+
+    def _content(self):
+        self._rendering()
+        self._lighting()
+        self._cut_out()
+        self._exploded()
 
     def _rendering(self):
         v3.VCheckbox(
             label="Custom Color Opacity",
             v_model="rep.use_internal_color_opacity",
+            # adopted labels have no other map to go on
+            disabled=("rep.LabelsAdopted",) if self.CATEGORICAL else False,
             **COMPACT,
         )
+        if not self.CATEGORICAL:
+            self._interpolation_and_blending()
+        self._solidity_and_jittering()
+
+    def _interpolation_and_blending(self):
         v3.VSelect(
             label="Interpolation",
             v_model="rep.InterpolationType",
@@ -149,6 +163,8 @@ class VolumeRepresentationUI(DivLayout):
             classes="mt-2",
             **FILLED,
         )
+
+    def _solidity_and_jittering(self):
         slider(
             "Solidity",
             "Solidity",

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+  <g transform="rotate(45 12 12)">
+    <path d="M 7,6 V 22 H 17 V 6 L 12,2 Z" style="fill:#a7d28c;stroke:#6f6f59;stroke-width:1.2;stroke-linejoin:round"/>
+    <circle cx="12" cy="7" r="1.6" style="fill:#ffffff;stroke:#6f6f59;stroke-width:1"/>
+    <path d="M 7,13 H 17 M 7,17.5 H 17" style="stroke:#6f6f59;stroke-width:1"/>
+    <rect x="7" y="13" width="10" height="4.5" style="fill:#719943"/>
+  </g>
+</svg>

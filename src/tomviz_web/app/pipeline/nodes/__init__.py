@@ -3,10 +3,15 @@
 from tomviz_pipeline import NodeFactory
 from tomviz_pipeline.nodes import register_builtins
 
+from tomviz_web.app.pipeline.representations import RepresentationType
+
 from .reader import SUPPORTED_EXTENSIONS, ReaderSourceNode
 from .sinks import INPUT_PORT, RepresentationSinkNode
 from .sources import build_source_node
 from .transforms import build_transform_node
+
+# A type the library registers as its inert sink placeholder
+INERT_SINK_TYPE = "sink.volume"
 
 
 def register_nodes():
@@ -19,6 +24,16 @@ def register_nodes():
     """
     register_builtins()
     NodeFactory.register(ReaderSourceNode.type_name, ReaderSourceNode)
+    # Sink types the library has no placeholder for (sink.labelMap) load
+    # as the same inert sink as the others.
+    known = set(NodeFactory.known_types())
+    for representation_type in RepresentationType:
+        if representation_type.sink_type not in known:
+            NodeFactory.register(representation_type.sink_type, _inert_sink)
+
+
+def _inert_sink():
+    return NodeFactory.create(INERT_SINK_TYPE)
 
 
 __all__ = [

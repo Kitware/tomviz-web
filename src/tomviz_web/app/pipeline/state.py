@@ -186,6 +186,26 @@ def volume_settings(entry: dict) -> dict:
             settings[field] = kind(exploded[key])
     if settings.get("ExplodedEnabled"):
         settings["CutOutEnabled"] = False  # the desktop's precedence
+    # Files from before the label map defaults keep their settings as saved
+    settings["label_map_defaults_applied"] = bool(
+        entry.get("labelMapDefaultsApplied", True)
+    )
+    return settings
+
+
+def label_map_settings(entry: dict) -> dict:
+    """The volume's settings plus the representation (a file from before
+    the surface existed was showing a volume) and the surface's. The
+    adopted table goes to the representation, see apply_sink_settings."""
+    settings = volume_settings(entry)
+    settings["Representation"] = (
+        "Surface" if entry.get("representation") == "Surface" else "Volume"
+    )
+    if "surfaceSmoothing" in entry:
+        settings["SurfaceSmoothing"] = int(entry["surfaceSmoothing"])
+    if "surfaceOpacity" in entry:
+        settings["SurfaceOpacity"] = float(entry["surfaceOpacity"])
+    settings["volume_look_applied"] = bool(entry.get("volumeLookApplied", True))
     return settings
 
 
@@ -322,6 +342,7 @@ SINK_SETTINGS = {
     RepresentationType.CLIP: clip_settings,
     RepresentationType.MOLECULE: molecule_settings,
     RepresentationType.CONTOUR: contour_settings,
+    RepresentationType.LABEL_MAP: label_map_settings,
     RepresentationType.THRESHOLD: threshold_settings,
     RepresentationType.OUTLINE: outline_settings,
     RepresentationType.SLICE: slice_settings,
@@ -415,11 +436,18 @@ SINK_KEYS = {
         "lighting",
         "cutOut",
         "exploded",
-        "labelMapDefaultsApplied",  # label maps have no sink here yet
+        "labelMapDefaultsApplied",
     },
 }
+SINK_KEYS[RepresentationType.LABEL_MAP] = SINK_KEYS[RepresentationType.VOLUME] | {
+    "representation",
+    "surfaceSmoothing",
+    "surfaceOpacity",
+    "volumeLookApplied",
+    "adoptedLabelMap",
+}
 LIGHTING_KEYS = {key for key, _field, _kind in LIGHTING_SETTINGS}
-PORT_METADATA_KEYS = {"colorOpacityMap", "activeScalars", "label"}
+PORT_METADATA_KEYS = {"colorOpacityMap", "activeScalars", "label", "labelMap"}
 
 
 def unrestored_sink_settings(entry: dict, representation_type) -> list[str]:
@@ -614,6 +642,11 @@ def apply_port_metadata(model: data_model.DataNodeModel, entry: dict):
         active = metadata.get("activeScalars")
         if active and active != DEFAULT_SCALARS:
             color_opacity.active_data_array = active
+        # A label map port's table; projected onto the map, over the saved
+        # map, and reconciled with the data once it is described.
+        table = metadata.get("labelMap")
+        if isinstance(table, dict):
+            port_model.ensure_label_table().load(table)
 
 
 def replace_sinks(
@@ -692,6 +725,11 @@ def apply_sink_settings(model, representation_type: RepresentationType, entry: d
     if settings is not None:
         for field, value in settings(entry).items():
             setattr(model, field, value)
+    adopted = entry.get("adoptedLabelMap")
+    if isinstance(adopted, dict) and hasattr(
+        model.representation, "restore_adopted_labels"
+    ):
+        model.representation.restore_adopted_labels(adopted)
 
     detached = (
         entry.get("colorOpacityMap") if entry.get("useDetachedColorMap") else None

@@ -27,6 +27,9 @@ mapper would otherwise re-upload every volume on every frame.
 Each member's input reaches the mapper as a shallow copy whose active
 scalars are the array the member displays: the mapper has one array
 selection for all its ports.
+
+Fine sampling (a label map's half-voxel step) is a property of the march:
+one member asking for it sets it for the set.
 """
 
 from __future__ import annotations
@@ -46,7 +49,8 @@ class MultiVolumeCoordinator:
 
     Members are volume representations exposing ``actor`` (their
     ``vtkVolume``), ``rendered_image`` and ``rendered_array`` (what their
-    own mapper draws), ``smooth_normals``, ``clip_planes``, ``label`` and
+    own mapper draws), ``smooth_normals``, ``clip_planes``, ``fine_step``
+    (None, or the ray step they need), ``label`` and
     ``apply_multi_volume_state()``, called whenever their place changes."""
 
     @classmethod
@@ -194,6 +198,13 @@ class MultiVolumeCoordinator:
         self.mapper.RemoveAllClippingPlanes()
         for plane in planes[:MAXIMUM_CLIPPING_PLANES]:
             self.mapper.AddClippingPlane(plane)
+        steps = [m.fine_step for m in self.members if m.fine_step is not None]
+        if steps:
+            self.mapper.AutoAdjustSampleDistancesOff()
+            self.mapper.SetSampleDistance(min(steps))
+            self.mapper.SetImageSampleDistance(1.0)
+        else:
+            self.mapper.AutoAdjustSampleDistancesOn()
 
     # ---- activation --------------------------------------------------------
 

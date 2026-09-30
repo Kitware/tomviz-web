@@ -260,8 +260,12 @@ class PipelineManager(TrameComponent):
             if description is None:
                 continue
             self.run_on_loop(
-                functools.partial(port_model.apply_description, description)
+                functools.partial(self._apply_description, port_model, description)
             )
+
+    def _apply_description(self, port_model, description):
+        port_model.apply_description(description)
+        self._refresh_tip_representations()
 
     def describe_ports(self, model: data_model.DataNodeModel):
         """Install the geometry of every output port that already carries
@@ -270,7 +274,7 @@ class PipelineManager(TrameComponent):
         for port_model in list(model.outputs):
             description = port_model.describe(requested=set())
             if description is not None:
-                port_model.apply_description(description)
+                self._apply_description(port_model, description)
 
     def _on_node_finished(self, node: Node, success: bool):
         # Event loop, queued behind whatever the loop is doing: the node
@@ -1182,15 +1186,31 @@ class PipelineManager(TrameComponent):
         self.tip_port = port
         port_model = self.port_model_of(port)
         self.state.tip_port_id = None if port_model is None else port_model._id
-        self.state.tip_representations = (
-            []
-            if port is None
-            else [
-                t.name
-                for t in RepresentationType
-                if t.representation_class is not None and t.accepts(port.port_type)
-            ]
-        )
+        self._refresh_tip_representations()
+
+    def _refresh_tip_representations(self):
+        """What the tip's data can be shown as. A Label Map takes a label
+        map port, or a plain volume whose active array holds integers few
+        enough to be labels (a segmentation read from a file), which its
+        description says."""
+        port = self.tip_port
+        names = []
+        if port is not None:
+            data_port = self.port_model_of(graph.data_port_of(port))
+            image = None if data_port is None else data_port.image
+            for t in RepresentationType:
+                if t.representation_class is None or not t.accepts(port.port_type):
+                    continue
+                if t is RepresentationType.LABEL_MAP and not (
+                    (data_port is not None and data_port.is_label_map)
+                    or (
+                        image is not None and image.active_scalars in image.label_arrays
+                    )
+                ):
+                    continue
+                names.append(t.name)
+        if names != self.state.tip_representations:
+            self.state.tip_representations = names
 
     def _on_active_change(self, active_node: list[str]):
         # Imported here: `ui` imports this package at module level.
