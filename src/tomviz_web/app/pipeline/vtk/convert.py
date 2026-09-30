@@ -1,6 +1,7 @@
-"""Bridge between the numpy-backed ``tomviz_pipeline.dataset.Dataset`` that
-flows through the pipeline graph and the ``vtkImageData`` the VTK rendering
-pipelines consume.
+"""Bridge between the numpy-backed payloads that flow through the pipeline
+graph and the VTK data the rendering pipelines consume: a
+``tomviz_pipeline.dataset.Dataset`` becomes a ``vtkImageData``, a
+``tomviz_pipeline.molecule.Molecule`` a ``vtkMolecule``.
 
 Arrays are shared, not copied, whenever the memory layout allows it. A
 Dataset holds Fortran-ordered ``(nx, ny, nz)`` arrays, where x varies fastest,
@@ -14,9 +15,10 @@ from __future__ import annotations
 
 import numpy as np
 from tomviz_pipeline.dataset import Dataset
+from tomviz_pipeline.molecule import Molecule
 from vtkmodules.util.numpy_support import numpy_to_vtk, vtk_to_numpy
-from vtkmodules.vtkCommonCore import vtkDataArray
-from vtkmodules.vtkCommonDataModel import vtkImageData
+from vtkmodules.vtkCommonCore import vtkDataArray, vtkPoints
+from vtkmodules.vtkCommonDataModel import vtkImageData, vtkMolecule, vtkPointData
 
 from tomviz_web.app.utils.data import shape_3d, spacing_3d
 
@@ -56,6 +58,30 @@ def to_vtk_image(dataset: Dataset) -> vtkImageData:
     active = dataset.active_name if dataset.active_name in names else names[0]
     point_data.SetActiveScalars(active)
     return image
+
+
+def to_vtk_molecule(molecule: Molecule) -> vtkMolecule:
+    """The atoms (numbers and positions, copied in one go) and bonds of
+    ``molecule``, as the desktop hands its molecule sink a vtkMolecule."""
+    result = vtkMolecule()
+    if molecule.num_atoms == 0:
+        return result
+    positions = vtkPoints()
+    positions.SetData(numpy_to_vtk(np.ascontiguousarray(molecule.positions), deep=True))
+    numbers = numpy_to_vtk(
+        np.ascontiguousarray(molecule.atomic_numbers, dtype=np.uint16), deep=True
+    )
+    numbers.SetName("Atomic Numbers")
+    # vtkMolecule wants its atom data to hold one tuple per atom (and
+    # crashes without any).
+    atom_data = vtkPointData()
+    atom_data.AddArray(numbers)
+    result.Initialize(positions, numbers, atom_data)
+    for (begin, end), order in zip(
+        molecule.bonds.tolist(), molecule.bond_orders.tolist(), strict=True
+    ):
+        result.AppendBond(begin, end, order)
+    return result
 
 
 def from_vtk_image(image: vtkImageData) -> Dataset:

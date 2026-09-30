@@ -257,6 +257,12 @@ def test_clip_settings_take_the_desktop_keys():
     assert state.unrestored_sink_settings(entry, RepresentationType.CLIP) == ["linked"]
 
 
+def test_molecule_settings_take_the_desktop_keys():
+    entry = {"ballRadius": 1.5, "stickRadius": 0.2}
+    assert state.molecule_settings(entry) == {"BallRadius": 1.5, "StickRadius": 0.2}
+    assert state.unrestored_sink_settings(entry, RepresentationType.MOLECULE) == []
+
+
 def test_every_desktop_sink_type_has_a_representation_type():
     for sink_type in ("sink.outline", "sink.slice", "sink.volume"):
         rep_type = state.REPRESENTATION_BY_SINK_TYPE[sink_type]

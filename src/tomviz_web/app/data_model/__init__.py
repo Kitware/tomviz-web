@@ -30,6 +30,7 @@ from .port_data import (
 from .sinks import (
     ClipSinkNodeModel,
     ContourSinkNodeModel,
+    MoleculeSinkNodeModel,
     OutlineSinkNodeModel,
     SinkNodeModel,
     SliceSinkNodeModel,
@@ -50,6 +51,7 @@ __all__ = [
     "ImagePortDataModel",
     "InputPortModel",
     "MoleculePortDataModel",
+    "MoleculeSinkNodeModel",
     "NodeModel",
     "OutlineSinkNodeModel",
     "OutputPortModel",

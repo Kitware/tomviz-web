@@ -102,6 +102,7 @@ class PipelineManager(TrameComponent):
         self.state.active_representation_id = None
         self.state.active_color_opacity_id = None
         self.state.tip_port_id = None
+        self.state.tip_representations = []
         self.state.pipeline_executing = False
         self.state.pipeline_paused = False
         self.state.pipeline_stopping = False
@@ -1174,10 +1175,22 @@ class PipelineManager(TrameComponent):
     # -------------------------------------------------------------------------
 
     def set_tip_port(self, port: OutputPort | None):
-        """Make ``port`` the tip: where the next transform or sink attaches."""
+        """Make ``port`` the tip: where the next transform or sink attaches.
+        ``state.tip_representations`` lists the implemented visualizations
+        that can show it (the toolbar offers only those, as the desktop's
+        menu does)."""
         self.tip_port = port
         port_model = self.port_model_of(port)
         self.state.tip_port_id = None if port_model is None else port_model._id
+        self.state.tip_representations = (
+            []
+            if port is None
+            else [
+                t.name
+                for t in RepresentationType
+                if t.representation_class is not None and t.accepts(port.port_type)
+            ]
+        )
 
     def _on_active_change(self, active_node: list[str]):
         # Imported here: `ui` imports this package at module level.

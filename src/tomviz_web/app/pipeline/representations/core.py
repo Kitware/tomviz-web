@@ -8,6 +8,7 @@ from vtkmodules.vtkCommonDataModel import vtkImageData
 from vtkmodules.vtkCommonExecutionModel import vtkTrivialProducer
 
 from tomviz_web.app import module
+from tomviz_web.app.pipeline.vtk import convert
 from tomviz_web.app.utils.data import IMAGE_PORT_TYPES, MOLECULE_PORT_TYPES
 
 
@@ -108,6 +109,11 @@ class Representation:
     @property
     def image(self) -> vtkImageData | None:
         return self._image
+
+    def to_vtk(self, payload):
+        """The VTK data this visualization draws from a port's payload
+        (worker thread): an image by default."""
+        return convert.to_vtk_image(payload)
 
     def prepare(self, image: vtkImageData):
         """Worker-thread hook: pure NumPy work on a new image, too slow for

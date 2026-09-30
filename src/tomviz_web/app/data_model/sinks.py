@@ -822,3 +822,21 @@ class ClipSinkNodeModel(PlaneModelMixin, SinkNodeModel):
         self.push()
         self.pull()
         self.render()
+
+
+# -----------------------------------------------------------------------------
+class MoleculeSinkNodeModel(FieldSyncMixin, SinkNodeModel):
+    """Ball-and-stick atoms and bonds (see ``MoleculeRepresentation``). The
+    defaults are vtkMoleculeMapper's ball-and-stick ones, as on the
+    desktop."""
+
+    BallRadius = Sync(float, 0.3)  # scale of the atomic radii [0-4]
+    StickRadius = Sync(float, 0.075)  # [0-2]
+
+    FIELDS = ("BallRadius", "StickRadius")
+
+    @watch(*FIELDS)
+    def _on_prop_change(self, *_):
+        self.push()
+        self.pull()
+        self.render()

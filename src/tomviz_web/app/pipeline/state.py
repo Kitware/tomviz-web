@@ -310,8 +310,17 @@ def clip_settings(entry: dict) -> dict:
     return settings
 
 
+def molecule_settings(entry: dict) -> dict:
+    settings = {}
+    for key, field in (("ballRadius", "BallRadius"), ("stickRadius", "StickRadius")):
+        if key in entry:
+            settings[field] = float(entry[key])
+    return settings
+
+
 SINK_SETTINGS = {
     RepresentationType.CLIP: clip_settings,
+    RepresentationType.MOLECULE: molecule_settings,
     RepresentationType.CONTOUR: contour_settings,
     RepresentationType.THRESHOLD: threshold_settings,
     RepresentationType.OUTLINE: outline_settings,
@@ -334,6 +343,7 @@ COMMON_SINK_KEYS = {
     "useDetachedColorMap",
 }
 SINK_KEYS = {
+    RepresentationType.MOLECULE: {"ballRadius", "stickRadius"},
     RepresentationType.CLIP: {
         "direction",
         "plane",

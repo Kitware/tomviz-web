@@ -9,7 +9,6 @@ from loguru import logger
 from tomviz_pipeline import PortData, SinkNode
 
 from tomviz_web.app.pipeline.representations import RepresentationType
-from tomviz_web.app.pipeline.vtk import convert
 
 if TYPE_CHECKING:
     from tomviz_web.app import data_model
@@ -28,8 +27,8 @@ class RepresentationSinkNode(SinkNode):
     (``sink.outline``, ``sink.slice``, ...).
 
     ``consume`` runs on the executor's worker thread. It only converts the
-    numpy payload to a ``vtkImageData`` there (and lets the representation
-    ``prepare`` what it computes from it); applying it to the actors and
+    numpy payload to VTK data there (``Representation.to_vtk``, then
+    ``prepare``); applying it to the actors and
     updating trame state happens in ``apply``, which the ``dispatch`` callable
     schedules on the application's event loop.
     """
@@ -63,7 +62,7 @@ class RepresentationSinkNode(SinkNode):
     def consume(self, inputs: dict[str, PortData]) -> bool:
         data = inputs[INPUT_PORT]
         try:
-            image = convert.to_vtk_image(data.payload)
+            image = self.representation.to_vtk(data.payload)
             prepared = self.representation.prepare(image)
         except Exception:
             logger.exception("Cannot display the output feeding '{}'", self.label)
