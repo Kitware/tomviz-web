@@ -56,3 +56,22 @@ def test_describe_empty_dataset():
 @pytest.mark.parametrize(("value", "expected"), [(0, 0), (1, 0), (100, 2)])
 def test_log10_maps_empty_bins_to_zero(value, expected):
     assert data.log10(value) == expected
+
+
+def test_threshold_seed_starts_at_the_brightest_voxels():
+    # 95 % of the voxels above the minimum lie below the seed
+    ramp = np.arange(1000, dtype=np.float32)
+    assert data.threshold_seed(ramp) == pytest.approx(0.95 * 999 + 1, abs=1)
+    # the background at the minimum does not count
+    background = np.zeros(1_000_000, dtype=np.uint16)
+    background[:1000] = np.arange(1000)
+    assert data.threshold_seed(background) == pytest.approx(950, abs=1)
+    # 5 % of 2 M voxels is under the budget; of 10 M, the budget governs
+    two = np.arange(1, 2_000_001, dtype=np.float64)
+    assert data.threshold_seed(two) == pytest.approx(1_900_000, rel=1e-3)
+    ten = np.arange(1, 10_000_001, dtype=np.float32)
+    assert data.threshold_seed(ten) == pytest.approx(9_750_000, rel=1e-3)
+    # NaNs are ignored; a constant array is its own seed
+    with_nan = np.append(ramp, np.nan)
+    assert data.threshold_seed(with_nan) == data.threshold_seed(ramp)
+    assert data.threshold_seed(np.full(10, 7.0)) == 7.0

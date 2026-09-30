@@ -40,7 +40,7 @@ def state_dict(tiff_path):
         "schemaVersion": 2,
         "paletteColor": [0.9, 0.9, 0.9],
         "pipeline": {
-            "nextNodeId": 5,
+            "nextNodeId": 6,
             "nodes": [
                 {
                     "id": 1,
@@ -82,6 +82,22 @@ def state_dict(tiff_path):
                     "inputPorts": {"volume": {"type": ["ImageData"]}},
                     "visible": False,
                     "viewId": VIEW_ID,
+                    "gridColor": [1.0, 0.0, 0.0],
+                    "gridVisibility": True,
+                    "gridLines": True,
+                    "useCustomAxesTitles": True,
+                    "customXTitle": "Width",
+                },
+                {
+                    "id": 5,
+                    "type": "sink.contour",
+                    "label": "Contour",
+                    "inputPorts": {"volume": {"type": ["ImageData"]}},
+                    "viewId": VIEW_ID + 1,
+                    "contourValue": 30.0,
+                    "representation": "Wireframe",
+                    "colorByArray": True,
+                    "colorByArrayName": "Tiff Scalars",  # the reader's name
                 },
             ],
             "links": [
@@ -96,6 +112,10 @@ def state_dict(tiff_path):
                 {
                     "from": {"node": 2, "port": "volume"},
                     "to": {"node": 4, "port": "volume"},
+                },
+                {
+                    "from": {"node": 2, "port": "volume"},
+                    "to": {"node": 5, "port": "volume"},
                 },
             ],
         },
@@ -186,17 +206,31 @@ async def run_session(tvsm, tvh5):
         check_session(manager, server)
         check_layout(manager, server, layouts[-1])
         assert executed[0] == 1  # the reader ran first
-        assert set(executed) == {1, 2, 3, 4}
+        assert set(executed) == {1, 2, 3, 4, 5}
+
+        # ---- the outline's axes follow its visibility; hiding the axes
+        # turns the grid and the custom titles off, as on the desktop
+        outline = sinks_of(manager)[4]
+        grid_axes = outline.representation.grid_axes
+        outline.Visibility = True
+        await asyncio.sleep(0.1)
+        assert grid_axes.GetVisibility()
+        outline.ShowGridAxes = False
+        await asyncio.sleep(0.1)
+        assert not grid_axes.GetVisibility()
+        assert (outline.ShowGrid, outline.UseCustomAxesTitles) == (False, False)
+        assert not grid_axes.GetGenerateGrid()
+        assert grid_axes.GetXTitle() == "X"
 
         # ---- .tvh5 in the same session: reset, then only the sinks run
         executed.clear()
         await manager.load_state_file(tvh5)
         await wait_idle(manager)
         check_session(manager, server)
-        assert set(executed) == {2, 3, 4}  # the group runs (trivially) too
+        assert set(executed) == {2, 3, 4, 5}  # the group runs (trivially) too
         assert len(manager.views) == 2
         assert len(layouts) == 2  # one restore per load
-        assert len(manager.model.nodes) == 4
+        assert len(manager.model.nodes) == 5
     finally:
         manager.shutdown()
         await server.stop()
@@ -206,7 +240,7 @@ async def run_session(tvsm, tvh5):
 def check_session(manager, server):
     pipeline = manager.pipeline
     sinks = sinks_of(manager)
-    assert set(sinks) == {3, 4}
+    assert set(sinks) == {3, 4, 5}
     assert all(
         isinstance(pipeline.node_by_id(i), RepresentationSinkNode) for i in sinks
     )
@@ -233,7 +267,14 @@ def check_session(manager, server):
         assert sink.source_port is port
         assert sink.state == "Current"
 
-    slice_model, outline = sinks[3], sinks[4]
+    slice_model, outline, contour = sinks[3], sinks[4], sinks[5]
+    # A contour colored by its own array: that array on its own map
+    assert (contour.IsoValue, contour.Mode) == (30.0, "Wireframe")
+    assert contour.use_internal_color_opacity is True
+    assert contour.color_opacity is not port.color_opacity
+    assert contour.color_opacity.active_data_array == "Tiff Scalars"
+    assert contour.view is not sinks[3].view  # the second saved view
+    assert contour.representation.contour.GetValue(0) == 30.0
     assert (slice_model.SliceDirection, slice_model.Slice) == ("YZ Plane", 2)
     assert slice_model.SliceMax == SHAPE[0] - 1
     assert slice_model.Interpolate is True
@@ -242,6 +283,17 @@ def check_session(manager, server):
     assert representation.actor.visibility
     assert outline.Visibility is False
     assert not outline.representation.actor.visibility
+    assert (outline.Color, outline.ShowGridAxes, outline.ShowGrid) == (
+        "#ff0000",
+        True,
+        True,
+    )
+    grid_axes = outline.representation.grid_axes
+    assert not grid_axes.GetVisibility()  # hidden with the outline
+    assert grid_axes.GetGenerateGrid()
+    assert grid_axes.GetGridBounds() == (0.0, 2.0, 0.0, 3.0, 0.0, 4.0)
+    assert (grid_axes.GetXTitle(), grid_axes.GetYTitle()) == ("Width", "Y")
+    assert outline.representation.property.GetColor() == (1.0, 0.0, 0.0)
 
     color_map = port.color_opacity
     assert color_map.color_space == "Lab"

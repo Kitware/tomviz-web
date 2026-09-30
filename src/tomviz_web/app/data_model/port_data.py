@@ -76,6 +76,7 @@ class ImagePortDataModel(PortDataModel):
     memory = Sync(int, 0)  # KiB
     ranges = Sync(dict, dict)  # array name -> [min, max]
     histograms = Sync(dict, dict)  # array name -> counts (data.HISTOGRAM_BINS)
+    label_arrays = Sync(list[str], list)  # what a Label Map could show
 
     @classmethod
     def describe(cls, payload, requested=None) -> data.ImageDescription:
@@ -89,6 +90,7 @@ class ImagePortDataModel(PortDataModel):
         self.extent = description.extent
         self.bounds = description.bounds
         self.memory = description.memory
+        self.label_arrays = list(description.label_arrays)
         self.ranges = {
             name: list(stats.range) for name, stats in description.statistics.items()
         }

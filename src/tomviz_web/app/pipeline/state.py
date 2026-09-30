@@ -18,8 +18,9 @@ Desktop specifics handled here:
   ``RepresentationSinkNode``s (same node id, same link) and applies their
   settings. Unsupported types stay in the graph as inert nodes with a plain
   ``NodeModel``, so the pipeline widget lists them but nothing shows them.
-- Slice ``direction`` is XY 0, YZ 1, XZ 2, Custom 3; ``activeScalars`` may be
-  the sentinel ``tomviz::DefaultScalars``.
+- Slice ``direction`` is XY 0, YZ 1, XZ 2, Custom 3 (``planeCenter`` and
+  ``planeNormal`` place a Custom plane); ``activeScalars`` may be the
+  sentinel ``tomviz::DefaultScalars``.
 """
 
 from __future__ import annotations
@@ -39,6 +40,10 @@ from tomviz_web.app.pipeline.graph import data_port_of, is_data_node, primary_up
 from tomviz_web.app.pipeline.layout import dockview_layout
 from tomviz_web.app.pipeline.nodes import INPUT_PORT, RepresentationSinkNode
 from tomviz_web.app.pipeline.representations import RepresentationType
+from tomviz_web.app.pipeline.representations.slice import THICK_SLICE_MODES
+from tomviz_web.app.pipeline.representations.volume import BLEND_MODES
+from tomviz_web.app.utils.colors import rgb_to_hex
+from tomviz_web.app.utils.volume import EXPLODED_AXES
 
 if TYPE_CHECKING:
     from tomviz_web.app.pipeline.manager import PipelineManager
@@ -46,7 +51,7 @@ if TYPE_CHECKING:
 STATE_EXTENSIONS = (".tvsm", ".tvh5")
 
 DEFAULT_SCALARS = "tomviz::DefaultScalars"
-SLICE_DIRECTIONS = {0: "XY Plane", 1: "YZ Plane", 2: "XZ Plane"}  # 3 = Custom
+SLICE_DIRECTIONS = {0: "XY Plane", 1: "YZ Plane", 2: "XZ Plane", 3: "Custom"}
 VOLUME_INTERPOLATION = {0: "Nearest", 1: "Linear"}
 REPRESENTATION_BY_SINK_TYPE = {t.sink_type: t for t in RepresentationType}
 
@@ -82,6 +87,35 @@ def background_of(view_entry: dict, raw: dict):
     return (float(color[0]), float(color[1]), float(color[2]))
 
 
+def outline_settings(entry: dict) -> dict:
+    settings = {}
+    color = entry.get("gridColor")
+    if isinstance(color, list) and len(color) == 3:
+        settings["Color"] = rgb_to_hex(tuple(float(c) for c in color))
+    for key, field in (
+        ("gridVisibility", "ShowGridAxes"),
+        ("gridLines", "ShowGrid"),
+        ("useCustomAxesTitles", "UseCustomAxesTitles"),
+    ):
+        if key in entry:
+            settings[field] = bool(entry[key])
+    for axis in "XYZ":
+        key = f"custom{axis}Title"
+        if key in entry:
+            settings[f"{axis}Title"] = str(entry[key])
+    return settings
+
+
+def vector3(value):
+    """A saved ``[x, y, z]`` as a float triple, or None."""
+    if isinstance(value, list) and len(value) == 3:
+        try:
+            return tuple(float(c) for c in value)
+        except (TypeError, ValueError):
+            return None
+    return None
+
+
 def slice_settings(entry: dict) -> dict:
     settings = {}
     direction = SLICE_DIRECTIONS.get(entry.get("direction"))
@@ -91,8 +125,25 @@ def slice_settings(entry: dict) -> dict:
         settings["SliceDirection"] = direction
     if "slice" in entry:
         settings["Slice"] = int(entry["slice"])
-    if "interpolate" in entry:
-        settings["Interpolate"] = bool(entry["interpolate"])
+    for key, field in (
+        ("interpolate", "Interpolate"),
+        ("showArrow", "ShowArrow"),
+        ("mapScalars", "MapScalars"),
+    ):
+        if key in entry:
+            settings[field] = bool(entry[key])
+    if "opacity" in entry:
+        settings["Opacity"] = float(entry["opacity"])
+    if "sliceThickness" in entry:
+        settings["SliceThickness"] = max(int(entry["sliceThickness"]), 1)
+    mode = entry.get("thickSliceMode")
+    if isinstance(mode, int) and 0 <= mode < len(THICK_SLICE_MODES):
+        settings["ThickSliceMode"] = THICK_SLICE_MODES[mode]
+    # A Custom plane; origin / point1 / point2 describe the same plane.
+    for key, field in (("planeCenter", "PlaneCenter"), ("planeNormal", "PlaneNormal")):
+        value = vector3(entry.get(key))
+        if value is not None:
+            settings[field] = value
     return settings
 
 
@@ -101,19 +152,199 @@ def volume_settings(entry: dict) -> dict:
     interpolation = VOLUME_INTERPOLATION.get(entry.get("interpolation"))
     if interpolation is not None:
         settings["InterpolationType"] = interpolation
+    mode = entry.get("blendingMode")
+    if isinstance(mode, int) and 0 <= mode < len(BLEND_MODES):
+        settings["BlendMode"] = BLEND_MODES[mode]
+    if "rayJittering" in entry:
+        settings["Jittering"] = bool(entry["rayJittering"])
+    if "solidity" in entry:
+        settings["Solidity"] = float(entry["solidity"])
+
     lighting = entry.get("lighting") or {}
-    if "enabled" in lighting:
-        settings["Shade"] = bool(lighting["enabled"])
-    if "shadowReach" in lighting:
-        settings["GlobalIlluminationReach"] = float(lighting["shadowReach"])
-    if "scattering" in lighting:
-        settings["VolumetricScatteringBlending"] = float(lighting["scattering"])
-    if "anisotropy" in lighting:
-        settings["VolumeAnisotropy"] = float(lighting["anisotropy"])
+    for key, field, kind in LIGHTING_SETTINGS:
+        if key in lighting:
+            settings[field] = kind(lighting[key])
+
+    cut_out = entry.get("cutOut") or {}
+    if "enabled" in cut_out:
+        settings["CutOutEnabled"] = bool(cut_out["enabled"])
+    if "corner" in cut_out:
+        settings["CutOutCorner"] = min(max(int(cut_out["corner"]), 0), 7)
+    position = vector3(cut_out.get("position"))
+    if position is not None:
+        settings["CutOutPosition"] = position
+
+    exploded = entry.get("exploded") or {}
+    axis = exploded.get("axis")
+    if isinstance(axis, int) and 0 <= axis < len(EXPLODED_AXES):
+        settings["ExplodedAxis"] = EXPLODED_AXES[axis]
+    direction = vector3(exploded.get("direction"))
+    if direction is not None:
+        settings["ExplodedDirection"] = direction
+    for key, field, kind in EXPLODED_SETTINGS:
+        if key in exploded:
+            settings[field] = kind(exploded[key])
+    if settings.get("ExplodedEnabled"):
+        settings["CutOutEnabled"] = False  # the desktop's precedence
+    # Files from before the label map defaults keep their settings as saved
+    settings["label_map_defaults_applied"] = bool(
+        entry.get("labelMapDefaultsApplied", True)
+    )
+    return settings
+
+
+def label_map_settings(entry: dict) -> dict:
+    """The volume's settings plus the representation (a file from before
+    the surface existed was showing a volume) and the surface's. The
+    adopted table goes to the representation, see apply_sink_settings."""
+    settings = volume_settings(entry)
+    settings["Representation"] = (
+        "Surface" if entry.get("representation") == "Surface" else "Volume"
+    )
+    if "surfaceSmoothing" in entry:
+        settings["SurfaceSmoothing"] = int(entry["surfaceSmoothing"])
+    if "surfaceOpacity" in entry:
+        settings["SurfaceOpacity"] = float(entry["surfaceOpacity"])
+    settings["volume_look_applied"] = bool(entry.get("volumeLookApplied", True))
+    return settings
+
+
+# (state key, model field, type) of the volume's "lighting" and "exploded"
+LIGHTING_SETTINGS = (
+    ("enabled", "Shade", bool),
+    ("ambient", "Ambient", float),
+    ("diffuse", "Diffuse", float),
+    ("specular", "Specular", float),
+    ("specularPower", "SpecularPower", float),
+    ("scattering", "VolumetricScattering", float),
+    ("shadowsEnabled", "ShadowsEnabled", bool),
+    ("shadowReach", "ShadowReach", float),
+    ("anisotropy", "ScatteringAnisotropy", float),
+    ("smoothNormals", "SmoothNormals", bool),
+)
+EXPLODED_SETTINGS = (
+    ("enabled", "ExplodedEnabled", bool),
+    ("showArrow", "ExplodedShowArrow", bool),
+    ("chunks", "ExplodedChunks", int),
+    ("gap", "ExplodedGap", float),
+    ("offset", "ExplodedOffset", int),
+)
+
+
+SURFACE_MODES = ("Surface", "Wireframe", "Points")
+
+
+def surface_settings(entry: dict, floats: tuple[tuple[str, str], ...]) -> dict:
+    """The appearance keys contour and threshold share."""
+    settings = {}
+    for key, field in floats:
+        if key in entry:
+            settings[field] = float(entry[key])
+    if entry.get("representation") in SURFACE_MODES:
+        settings["Mode"] = entry["representation"]
+    if "mapScalars" in entry:
+        settings["MapScalars"] = bool(entry["mapScalars"])
+    return settings
+
+
+def contour_settings(entry: dict) -> dict:
+    settings = surface_settings(
+        entry,
+        (
+            ("contourValue", "IsoValue"),
+            ("opacity", "Opacity"),
+            ("ambient", "Ambient"),
+            ("diffuse", "Diffuse"),
+            ("specular", "Specular"),
+            ("specularPower", "SpecularPower"),
+        ),
+    )
+    if "useSolidColor" in entry:
+        settings["UseSolidColor"] = bool(entry["useSolidColor"])
+    color = entry.get("color")
+    if isinstance(color, str) and len(color) == 7 and color.startswith("#"):
+        settings["Color"] = color.lower()  # QColor::name(), #rrggbb
+    active = entry.get("activeScalars")
+    if isinstance(active, str) and active != DEFAULT_SCALARS:
+        settings["ContourBy"] = active
+    return settings
+
+
+def threshold_settings(entry: dict) -> dict:
+    settings = surface_settings(
+        entry, (("opacity", "Opacity"), ("specular", "Specular"))
+    )
+    # The desktop saves both bounds or neither.
+    if "minimum" in entry and "maximum" in entry:
+        settings["Minimum"] = float(entry["minimum"])
+        settings["Maximum"] = float(entry["maximum"])
+    index = entry.get("scalarArray")
+    if isinstance(index, int) and index >= 0:
+        settings["ThresholdBy"] = index  # resolved to a name once data comes
+    return settings
+
+
+def plane_of_points(entry: dict):
+    """The (center, normal) of the plane the desktop's plane widget saves as
+    ``origin``, ``point1`` and ``point2``, or None. The normal is theirs,
+    inverted or not."""
+    corners = [vector3(entry.get(key)) for key in ("origin", "point1", "point2")]
+    if any(c is None for c in corners):
+        return None
+    origin, point1, point2 = corners
+    u = [a - o for a, o in zip(point1, origin, strict=True)]
+    v = [b - o for b, o in zip(point2, origin, strict=True)]
+    normal = (
+        u[1] * v[2] - u[2] * v[1],
+        u[2] * v[0] - u[0] * v[2],
+        u[0] * v[1] - u[1] * v[0],
+    )
+    if not any(normal):
+        return None
+    center = tuple(o + (a + b) / 2 for o, a, b in zip(origin, u, v, strict=True))
+    return center, normal
+
+
+def clip_settings(entry: dict) -> dict:
+    settings = {}
+    direction = SLICE_DIRECTIONS.get(entry.get("direction"))
+    if direction is not None:
+        settings["SliceDirection"] = direction
+    if "plane" in entry:
+        settings["Slice"] = int(entry["plane"])
+    if "opacity" in entry:
+        settings["Opacity"] = float(entry["opacity"])
+    for key, field in (
+        ("showPlane", "ShowPlane"),
+        ("showArrow", "ShowArrow"),
+        ("invertPlane", "InvertPlane"),
+    ):
+        if key in entry:
+            settings[field] = bool(entry[key])
+    color = vector3(entry.get("selectedColor"))
+    if color is not None:
+        settings["Color"] = rgb_to_hex(color)
+    plane = plane_of_points(entry)
+    if plane is not None and direction == "Custom":
+        settings["PlaneCenter"], settings["PlaneNormal"] = plane
+    return settings
+
+
+def molecule_settings(entry: dict) -> dict:
+    settings = {}
+    for key, field in (("ballRadius", "BallRadius"), ("stickRadius", "StickRadius")):
+        if key in entry:
+            settings[field] = float(entry[key])
     return settings
 
 
 SINK_SETTINGS = {
+    RepresentationType.CLIP: clip_settings,
+    RepresentationType.MOLECULE: molecule_settings,
+    RepresentationType.CONTOUR: contour_settings,
+    RepresentationType.LABEL_MAP: label_map_settings,
+    RepresentationType.THRESHOLD: threshold_settings,
+    RepresentationType.OUTLINE: outline_settings,
     RepresentationType.SLICE: slice_settings,
     RepresentationType.VOLUME: volume_settings,
 }
@@ -133,11 +364,90 @@ COMMON_SINK_KEYS = {
     "useDetachedColorMap",
 }
 SINK_KEYS = {
-    RepresentationType.SLICE: {"direction", "slice", "interpolate"},
-    RepresentationType.VOLUME: {"interpolation", "lighting"},
+    RepresentationType.MOLECULE: {"ballRadius", "stickRadius"},
+    RepresentationType.CLIP: {
+        "direction",
+        "plane",
+        "opacity",
+        "showPlane",
+        "showArrow",
+        "invertPlane",
+        "selectedColor",
+        "origin",
+        "point1",
+        "point2",
+    },
+    RepresentationType.CONTOUR: {
+        "contourValue",
+        "opacity",
+        "ambient",
+        "diffuse",
+        "specular",
+        "specularPower",
+        "representation",
+        "mapScalars",
+        "useSolidColor",
+        "color",
+        "activeScalars",
+        # the sink's own color map's array, see apply_sink_settings
+        "colorByArray",
+        "colorByArrayName",
+    },
+    RepresentationType.THRESHOLD: {
+        "minimum",
+        "maximum",
+        "opacity",
+        "specular",
+        "representation",
+        "mapScalars",
+        "scalarArray",
+        "colorByArray",
+        "colorByArrayName",
+    },
+    RepresentationType.OUTLINE: {
+        "gridColor",
+        "gridVisibility",
+        "gridLines",
+        "useCustomAxesTitles",
+        "customXTitle",
+        "customYTitle",
+        "customZTitle",
+    },
+    RepresentationType.SLICE: {
+        "direction",
+        "slice",
+        "interpolate",
+        "opacity",
+        "sliceThickness",
+        "thickSliceMode",
+        "showArrow",
+        "mapScalars",
+        "planeCenter",
+        "planeNormal",
+        "origin",
+        "point1",
+        "point2",
+    },
+    RepresentationType.VOLUME: {
+        "interpolation",
+        "blendingMode",
+        "rayJittering",
+        "solidity",
+        "lighting",
+        "cutOut",
+        "exploded",
+        "labelMapDefaultsApplied",
+    },
 }
-LIGHTING_KEYS = {"enabled", "shadowReach", "scattering", "anisotropy"}
-PORT_METADATA_KEYS = {"colorOpacityMap", "activeScalars", "label"}
+SINK_KEYS[RepresentationType.LABEL_MAP] = SINK_KEYS[RepresentationType.VOLUME] | {
+    "representation",
+    "surfaceSmoothing",
+    "surfaceOpacity",
+    "volumeLookApplied",
+    "adoptedLabelMap",
+}
+LIGHTING_KEYS = {key for key, _field, _kind in LIGHTING_SETTINGS}
+PORT_METADATA_KEYS = {"colorOpacityMap", "activeScalars", "label", "labelMap"}
 
 
 def unrestored_sink_settings(entry: dict, representation_type) -> list[str]:
@@ -332,6 +642,11 @@ def apply_port_metadata(model: data_model.DataNodeModel, entry: dict):
         active = metadata.get("activeScalars")
         if active and active != DEFAULT_SCALARS:
             color_opacity.active_data_array = active
+        # A label map port's table; projected onto the map, over the saved
+        # map, and reconciled with the data once it is described.
+        table = metadata.get("labelMap")
+        if isinstance(table, dict):
+            port_model.ensure_label_table().load(table)
 
 
 def replace_sinks(
@@ -410,6 +725,11 @@ def apply_sink_settings(model, representation_type: RepresentationType, entry: d
     if settings is not None:
         for field, value in settings(entry).items():
             setattr(model, field, value)
+    adopted = entry.get("adoptedLabelMap")
+    if isinstance(adopted, dict) and hasattr(
+        model.representation, "restore_adopted_labels"
+    ):
+        model.representation.restore_adopted_labels(adopted)
 
     detached = (
         entry.get("colorOpacityMap") if entry.get("useDetachedColorMap") else None
@@ -421,4 +741,12 @@ def apply_sink_settings(model, representation_type: RepresentationType, entry: d
             detached.get("points", []),
             detached.get("colorSpace", "RGB"),
         )
+        model.use_internal_color_opacity = True
+
+    # The desktop colors a contour or threshold by its own "color by" array
+    # through the port's map; here a color map carries its array, so that
+    # array goes on the sink's own map.
+    color_by = entry.get("colorByArrayName") if entry.get("colorByArray") else None
+    if color_by and internal is not None:
+        internal.active_data_array = str(color_by)
         model.use_internal_color_opacity = True

@@ -18,6 +18,8 @@ from tomviz_pipeline.dataset import Dataset
 from tomviz_pipeline.molecule import Molecule, element_symbol
 from tomviz_pipeline.table import Table
 
+from tomviz_web.app.utils import labels
+
 # Port type strings (tomviz_pipeline) grouped by payload family.
 IMAGE_PORT_TYPES = ("ImageData", "Volume", "TiltSeries", "LabelMap", "Image")
 TABLE_PORT_TYPES = ("Table",)
@@ -90,6 +92,38 @@ def histogram(
     return [int(c) for c in counts]
 
 
+# A new threshold keeps about this many voxels at most (the desktop's budget)
+THRESHOLD_BUDGET = 250_000
+THRESHOLD_BINS = 4096
+
+
+def threshold_seed(array: np.ndarray) -> float:
+    """Where a new threshold starts, as on the desktop (thresholdSeed): the
+    value above which the brightest voxels lie, at most the budget of them
+    and at most 5 %, among the voxels above the minimum (most of a
+    reconstruction is dim background, and thresholding into that noise
+    makes a huge surface). A 4096-bin histogram, interpolated in its bin."""
+    flat = array.ravel(order="K")
+    if flat.size == 0:
+        return 0.0
+    finite = np.issubdtype(flat.dtype, np.integer) or bool(np.isfinite(flat).all())
+    low = float(flat.min() if finite else np.nanmin(flat))
+    high = float(flat.max() if finite else np.nanmax(flat))
+    if not high > low:
+        return low
+    counts = np.asarray(histogram(flat, THRESHOLD_BINS, (low, high)))
+    counts[0] -= int(np.count_nonzero(flat == low))  # the minimum is excluded
+    total = int(counts.sum())
+    if total <= 0:
+        return low
+    fraction = max(0.95, 1.0 - THRESHOLD_BUDGET / flat.size)
+    target = fraction * total
+    below = np.concatenate(([0], np.cumsum(counts)[:-1]))
+    index = int(np.argmax(below + counts >= target))
+    within = (target - below[index]) / counts[index] if counts[index] else 0.0
+    return low + (index + within) * (high - low) / THRESHOLD_BINS
+
+
 @dataclass
 class ArrayStatistics:
     range: tuple[float, float]
@@ -114,6 +148,11 @@ class ImageDescription:
     bounds: Bounds = EMPTY_BOUNDS
     memory: int = 0  # KiB, like vtkDataObject::GetActualMemorySize
     statistics: dict[str, ArrayStatistics] = field(default_factory=dict)
+    # Arrays a Label Map could show: integers spanning at most MAX_LABELS
+    # values (utils.labels.can_interpret_as_label_map).
+    label_arrays: list[str] = field(default_factory=list)
+    # A label map port's scan of its active array (data_model.labels)
+    labels: tuple | None = None
 
 
 def describe_dataset(dataset: Dataset, arrays=()) -> ImageDescription:
@@ -138,6 +177,18 @@ def describe_dataset(dataset: Dataset, arrays=()) -> ImageDescription:
     for name in arrays:
         if name in names:
             description.statistics[name] = array_statistics(dataset.scalars(name))
+
+    for name in names:
+        values = dataset.scalars(name)
+        if not labels.is_label_dtype(values.dtype):
+            continue
+        if values.dtype.itemsize > 2:
+            stats = description.statistics.get(name)
+            span = stats.range if stats is not None else value_range(values)
+        else:
+            span = None
+        if labels.can_interpret_as_label_map(values.dtype, span):
+            description.label_arrays.append(name)
 
     return description
 

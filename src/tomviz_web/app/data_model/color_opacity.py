@@ -8,7 +8,7 @@ from trame_colormaps.core import presets
 
 from tomviz_web.app.pipeline.vtk.core import LookupTable, PiecewiseFunction
 from tomviz_web.app.utils import colors as util_colors
-from tomviz_web.app.utils import data
+from tomviz_web.app.utils import data, labels
 
 if TYPE_CHECKING:
     from .port import OutputPortModel
@@ -86,6 +86,11 @@ class ColorOpacityModel(StateDataModel):
     ``release`` from the sink side) or the color editor showing it (the
     manager registers a ``UI_USER`` token). A port nobody displays therefore
     costs nothing.
+
+    A map can show a label table instead (``load_labels``, the projection
+    of a label map's table): one flat band per label, over the labels' own
+    range, which the data's statistics never rescale, and a lookup table
+    with one entry per label value.
     """
 
     UI_USER = "ui"
@@ -126,6 +131,7 @@ class ColorOpacityModel(StateDataModel):
         self._points_range = DEFAULT_RANGE  # what the points currently span
         self._preserve_range = False  # a loaded map keeps its range once
         self._inherited = False  # copied from the upstream port's map
+        self.label_range: tuple[float, float] | None = None  # showing labels
         self._shown_opacities: list | None = None  # the editor's opacity nodes
         self._client_messages = 0  # client writes received, for the echo window
         self._pushed_opacities: deque = deque(maxlen=ECHO_HISTORY)  # (msg, nodes)
@@ -197,6 +203,7 @@ class ColorOpacityModel(StateDataModel):
             return
         xs = [row[0] for row in color_rows]
         self._points_range = (min(xs), max(xs))
+        self.label_range = None
         self.active_color_preset = ""
         self.color_space = normalize_color_space(color_space)
         self.color_points = color_rows
@@ -205,6 +212,23 @@ class ColorOpacityModel(StateDataModel):
             self.opacity_points = opacity_rows
         self._preserve_range = True
         self.color_range = list(self._points_range)
+        self._update_lut()
+        self._update_pwf()
+
+    def load_labels(self, entries: list[dict]):
+        """Show a label table (``utils.labels`` entries): every label its
+        color, the hidden ones transparent. The map stays on the labels'
+        range until something else replaces its points."""
+        colors, opacities = labels.band_points(entries)
+        if not colors:
+            return
+        self.label_range = (colors[0][0], colors[-1][0])
+        self._points_range = self.label_range
+        self.active_color_preset = ""
+        self.color_space = "RGB"
+        self.color_points = colors
+        self.opacity_points = opacities
+        self.color_range = list(self.label_range)
         self._update_lut()
         self._update_pwf()
 
@@ -223,6 +247,7 @@ class ColorOpacityModel(StateDataModel):
         self.opacity_points = [list(row) for row in source.opacity_points]
         self._preserve_range = False
         self._inherited = True
+        self.label_range = None
         self._update_lut()
         self._update_pwf()
 
@@ -236,6 +261,8 @@ class ColorOpacityModel(StateDataModel):
 
     @watch("active_color_preset", "invert_color_preset")
     def _on_preset_change(self, *_):
+        if self.active_color_preset and self.label_range is not None:
+            self.label_range = None  # a preset picked in the editor
         self.apply_preset()
 
     @watch("color_range")
@@ -311,7 +338,7 @@ class ColorOpacityModel(StateDataModel):
 
     def _update_lut(self):
         if self.lut is not None and self.color_points:
-            self.lut.set_points(self.color_points, self.color_space)
+            self.lut.set_points(self.color_points, self.color_space, self.label_range)
             self.scaled_colors = self._sample_gradient()
 
     def _update_pwf(self):
@@ -401,7 +428,9 @@ class ColorOpacityModel(StateDataModel):
         v_min, v_max = stats.range
         step = max((v_max - v_min) / 255, 1)
         self.data_range = (v_min, v_max, step)
-        keep_labels = self._inherited and port.port_type == "LabelMap"
+        keep_labels = self.label_range is not None or (
+            self._inherited and port.port_type == "LabelMap"
+        )
         if self._preserve_range or keep_labels:
             self._preserve_range = False
         else:

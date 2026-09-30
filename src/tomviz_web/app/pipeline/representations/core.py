@@ -8,6 +8,7 @@ from vtkmodules.vtkCommonDataModel import vtkImageData
 from vtkmodules.vtkCommonExecutionModel import vtkTrivialProducer
 
 from tomviz_web.app import module
+from tomviz_web.app.pipeline.vtk import convert
 from tomviz_web.app.utils.data import IMAGE_PORT_TYPES, MOLECULE_PORT_TYPES
 
 
@@ -33,10 +34,13 @@ class RepresentationType(Enum):
 
     CLIP = ("clip.svg", "Clip", "sink.clip", IMAGE_PORT_TYPES)
     CONTOUR = ("contour.svg", "Contour", "sink.contour", IMAGE_PORT_TYPES)
+    # Any image: a segmentation read from a file arrives as a plain volume
+    # (the toolbar offers it only for integer data, see label_map.py).
+    LABEL_MAP = ("labelmap.svg", "Label Map", "sink.labelMap", IMAGE_PORT_TYPES)
     MOLECULE = ("molecule.svg", "Molecule", "sink.molecule", MOLECULE_PORT_TYPES)
     OUTLINE = ("outline.svg", "Outline", "sink.outline", IMAGE_PORT_TYPES)
     RULER = ("ruler.svg", "Ruler", "sink.ruler", IMAGE_PORT_TYPES)
-    SCALE_CUBE = ("scale-cube.svg", "Scale Cube", "sink.scaleCube", IMAGE_PORT_TYPES)
+    SCALE_CUBE = ("scale-cube.png", "Scale Cube", "sink.scaleCube", IMAGE_PORT_TYPES)
     SLICE = ("slice.svg", "Slice", "sink.slice", IMAGE_PORT_TYPES)
     THRESHOLD = ("threshold.svg", "Threshold", "sink.threshold", IMAGE_PORT_TYPES)
     VOLUME = ("volume.png", "Volume", "sink.volume", IMAGE_PORT_TYPES)
@@ -68,6 +72,22 @@ class RepresentationType(Enum):
         return self.representation_class(pipeline_manager, source_port, view)
 
 
+def set_mapper_clipping_planes(mapper, planes) -> bool:
+    """Make ``planes`` the clipping planes of ``mapper``. True if changed."""
+    current = mapper.GetClippingPlanes()
+    existing = (
+        [current.GetItem(i) for i in range(current.GetNumberOfItems())]
+        if current is not None
+        else []
+    )
+    if existing == list(planes):
+        return False
+    mapper.RemoveAllClippingPlanes()
+    for plane in planes:
+        mapper.AddClippingPlane(plane)
+    return True
+
+
 class Representation:
     """VTK plumbing for one visualization of a dataset in one view.
 
@@ -77,7 +97,8 @@ class Representation:
     ``vtkTrivialProducer`` so the VTK pipeline exists before any data does;
     the owning sink node calls ``set_input`` whenever the graph delivers a new
     image. Until then the actor stays hidden so VTK never tries to execute an
-    empty pipeline.
+    empty pipeline. A visualization drawing more than the actor lists the
+    extra props in ``props`` and overrides ``set_visible`` to show them.
     """
 
     def __init__(self, server):
@@ -92,7 +113,17 @@ class Representation:
     def image(self) -> vtkImageData | None:
         return self._image
 
-    def set_input(self, image: vtkImageData):
+    def to_vtk(self, payload):
+        """The VTK data this visualization draws from a port's payload
+        (worker thread): an image by default."""
+        return convert.to_vtk_image(payload)
+
+    def prepare(self, image: vtkImageData):
+        """Worker-thread hook: pure NumPy work on a new image, too slow for
+        the event loop (a percentile, a range). The result reaches
+        ``set_input``. Nothing by default."""
+
+    def set_input(self, image: vtkImageData, prepared=None):  # noqa: ARG002
         self._image = image
         self.producer.SetOutput(image)
 
@@ -101,11 +132,19 @@ class Representation:
         producer keeps the last image so VTK never executes empty)."""
         self._image = None
         if self.actor is not None:
-            self.actor.visibility = False
+            self.set_visible(False)
+
+    @property
+    def props(self):
+        """Every prop the visualization adds to its view."""
+        return (self.actor,)
+
+    def set_visible(self, visible: bool):
+        self.actor.visibility = bool(visible)
 
     def attach(self, view):
-        """Add the actor to a ``vtk.view.View``, hidden until data arrives."""
-        self.actor.visibility = False
+        """Add the props to a ``vtk.view.View``, hidden until data arrives."""
+        self.set_visible(False)
         view.add_representation(self)
 
     def detach(self, view):

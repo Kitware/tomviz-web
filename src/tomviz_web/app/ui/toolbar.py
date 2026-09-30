@@ -61,12 +61,17 @@ class Toolbar(v3.VAppBar):
 
             v3.VDivider(vertical=True, classes="mr-2")
 
-            # Representations
+            # Representations: only those implemented
             for rep_type in RepresentationType:
+                if rep_type.representation_class is None:
+                    continue
                 ui.toolbar_btn(
                     rep_type.icon,
                     v_tooltip_bottom=f"'{rep_type.label}'",
-                    disabled=("!active_view_id || !tip_port_id",),
+                    disabled=(
+                        "!active_view_id || !tip_port_id"
+                        f" || !tip_representations.includes('{rep_type.name}')",
+                    ),
                     click=(
                         self.ctx.pipeline.add_sink,
                         f"[active_view_id, '{rep_type.name}']",

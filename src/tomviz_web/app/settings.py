@@ -20,6 +20,9 @@ DEFAULT_FILE = Path.home() / ".tomviz" / "settings.json"
 # State key -> default. Add an entry to remember another preference.
 PERSISTED = {
     "drawer_columns": True,  # two-column drawer (pipeline left, the rest right)
+    # The user's volume lighting presets, as the desktop stores them
+    # (LightingPresetStore): [{"name", "shade", "ambient", ...}, ...]
+    "volume_lighting_presets": [],
 }
 
 

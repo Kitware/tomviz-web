@@ -10,6 +10,7 @@ from trame.app.dataclass import get_instance
 from .catalog import CatalogFolder, CatalogItem
 from .color_opacity import ColorOpacityModel, create_color_opacity
 from .color_presets import ColorMaps, ColorPreset
+from .labels import LabelTableModel
 from .node import (
     DataNodeModel,
     NodeModel,
@@ -28,9 +29,14 @@ from .port_data import (
     register_port_data_model,
 )
 from .sinks import (
+    ClipSinkNodeModel,
+    ContourSinkNodeModel,
+    LabelMapSinkNodeModel,
+    MoleculeSinkNodeModel,
     OutlineSinkNodeModel,
     SinkNodeModel,
     SliceSinkNodeModel,
+    ThresholdSinkNodeModel,
     VolumeSinkNodeModel,
 )
 from .view import ViewModel
@@ -38,13 +44,18 @@ from .view import ViewModel
 __all__ = [
     "CatalogFolder",
     "CatalogItem",
+    "ClipSinkNodeModel",
     "ColorMaps",
     "ColorOpacityModel",
     "ColorPreset",
+    "ContourSinkNodeModel",
     "DataNodeModel",
     "ImagePortDataModel",
     "InputPortModel",
+    "LabelMapSinkNodeModel",
+    "LabelTableModel",
     "MoleculePortDataModel",
+    "MoleculeSinkNodeModel",
     "NodeModel",
     "OutlineSinkNodeModel",
     "OutputPortModel",
@@ -55,6 +66,7 @@ __all__ = [
     "SliceSinkNodeModel",
     "SourceNodeModel",
     "TablePortDataModel",
+    "ThresholdSinkNodeModel",
     "TransformNodeModel",
     "ViewModel",
     "VolumeSinkNodeModel",

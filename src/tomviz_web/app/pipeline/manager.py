@@ -87,6 +87,8 @@ class PipelineManager(TrameComponent):
 
         self.node_models: dict[int, data_model.NodeModel] = {}  # node.id -> model
         self.views = {}  # view_id -> ui.RenderWindow
+        # clip representation -> the sink models it cuts (refresh_clipping)
+        self._clip_targets: dict = {}
 
         self.tip_port: OutputPort | None = None
         self._selected_node: Node | None = None
@@ -100,6 +102,7 @@ class PipelineManager(TrameComponent):
         self.state.active_representation_id = None
         self.state.active_color_opacity_id = None
         self.state.tip_port_id = None
+        self.state.tip_representations = []
         self.state.pipeline_executing = False
         self.state.pipeline_paused = False
         self.state.pipeline_stopping = False
@@ -257,8 +260,12 @@ class PipelineManager(TrameComponent):
             if description is None:
                 continue
             self.run_on_loop(
-                functools.partial(port_model.apply_description, description)
+                functools.partial(self._apply_description, port_model, description)
             )
+
+    def _apply_description(self, port_model, description):
+        port_model.apply_description(description)
+        self._refresh_tip_representations()
 
     def describe_ports(self, model: data_model.DataNodeModel):
         """Install the geometry of every output port that already carries
@@ -267,7 +274,7 @@ class PipelineManager(TrameComponent):
         for port_model in list(model.outputs):
             description = port_model.describe(requested=set())
             if description is not None:
-                port_model.apply_description(description)
+                self._apply_description(port_model, description)
 
     def _on_node_finished(self, node: Node, success: bool):
         # Event loop, queued behind whatever the loop is doing: the node
@@ -316,6 +323,7 @@ class PipelineManager(TrameComponent):
         self._connect_node(model)
         self.node_models[node.id] = model
         self.model.add(model)
+        self.refresh_clipping()
 
         for port_model in model.outputs:
             for link in port_model.port.outgoing_links:
@@ -328,6 +336,7 @@ class PipelineManager(TrameComponent):
             connection.disconnect()
         self.node_models.pop(model.node.id, None)
         self.model.remove(model)
+        self.refresh_clipping()
 
     def _connect_node(self, model: data_model.NodeModel):
         """Follow the node's state, execution and progress signals, and each
@@ -429,6 +438,7 @@ class PipelineManager(TrameComponent):
             input_model.link = self.port_model_of(link.from_port)
             input_model.pull_link()
         self.model.refresh_roots()
+        self.refresh_clipping()
 
     def _on_link_removed(self, link: Link):
         input_model = self.input_model_of(link.to_port)
@@ -436,6 +446,7 @@ class PipelineManager(TrameComponent):
             input_model.link = None
             input_model.link_valid = True
         self.model.refresh_roots()
+        self.refresh_clipping()
 
     def _on_link_validity(self, link: Link, _valid: bool):
         # May fire on the worker (a reader re-typing its output mid-run).
@@ -449,6 +460,36 @@ class PipelineManager(TrameComponent):
             for m in self.node_models.values()
             if isinstance(m, data_model.SinkNodeModel)
         ]
+
+    def refresh_clipping(self):
+        """Hand every clippable sink the planes of the clips cutting it: the
+        visible clips with data fed by the same port as the sink (its
+        group), in any view, as the desktop clips a clip's siblings. Runs
+        whenever links, sinks or a clip's visibility change."""
+        sinks = self._sink_models()
+        clips = [s for s in sinks if getattr(s.representation, "clipping", False)]
+        self._clip_targets = {}
+        for sink in sinks:
+            apply = getattr(sink.representation, "set_clipping_planes", None)
+            if apply is None or sink.node is None:
+                continue
+            upstream = graph.primary_upstream(sink.node)
+            planes = []
+            for clip in clips:
+                if (
+                    upstream is not None
+                    and graph.primary_upstream(clip.node) is upstream
+                ):
+                    planes.append(clip.representation.clip_plane)
+                    self._clip_targets.setdefault(clip.representation, []).append(sink)
+            if apply(planes):
+                sink.render()
+
+    def render_clip_targets(self, clip_representation):
+        """A clip's plane moved: redraw what it cuts (planes are read at
+        render time)."""
+        for sink in self._clip_targets.get(clip_representation, ()):
+            sink.render()
 
     def _refresh_sink_sources(self):
         """Point every sink model at the data port now feeding it (through
@@ -1138,10 +1179,38 @@ class PipelineManager(TrameComponent):
     # -------------------------------------------------------------------------
 
     def set_tip_port(self, port: OutputPort | None):
-        """Make ``port`` the tip: where the next transform or sink attaches."""
+        """Make ``port`` the tip: where the next transform or sink attaches.
+        ``state.tip_representations`` lists the implemented visualizations
+        that can show it (the toolbar offers only those, as the desktop's
+        menu does)."""
         self.tip_port = port
         port_model = self.port_model_of(port)
         self.state.tip_port_id = None if port_model is None else port_model._id
+        self._refresh_tip_representations()
+
+    def _refresh_tip_representations(self):
+        """What the tip's data can be shown as. A Label Map takes a label
+        map port, or a plain volume whose active array holds integers few
+        enough to be labels (a segmentation read from a file), which its
+        description says."""
+        port = self.tip_port
+        names = []
+        if port is not None:
+            data_port = self.port_model_of(graph.data_port_of(port))
+            image = None if data_port is None else data_port.image
+            for t in RepresentationType:
+                if t.representation_class is None or not t.accepts(port.port_type):
+                    continue
+                if t is RepresentationType.LABEL_MAP and not (
+                    (data_port is not None and data_port.is_label_map)
+                    or (
+                        image is not None and image.active_scalars in image.label_arrays
+                    )
+                ):
+                    continue
+                names.append(t.name)
+        if names != self.state.tip_representations:
+            self.state.tip_representations = names
 
     def _on_active_change(self, active_node: list[str]):
         # Imported here: `ui` imports this package at module level.

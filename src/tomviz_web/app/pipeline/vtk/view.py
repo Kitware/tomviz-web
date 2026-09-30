@@ -204,12 +204,14 @@ class View:
     def add_representation(self, representation):
         if representation not in self._representations:
             self._representations.add(representation)
-            self.renderer.AddViewProp(representation.actor)
+            for prop in representation.props:
+                self.renderer.AddViewProp(prop)
 
     def remove_representation(self, representation):
         if representation in self._representations:
             self._representations.discard(representation)
-            self.renderer.RemoveViewProp(representation.actor)
+            for prop in representation.props:
+                self.renderer.RemoveViewProp(prop)
 
     def clear(self):
         for rep in list(self._representations):

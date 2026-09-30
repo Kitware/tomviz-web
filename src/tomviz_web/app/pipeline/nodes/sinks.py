@@ -9,7 +9,6 @@ from loguru import logger
 from tomviz_pipeline import PortData, SinkNode
 
 from tomviz_web.app.pipeline.representations import RepresentationType
-from tomviz_web.app.pipeline.vtk import convert
 
 if TYPE_CHECKING:
     from tomviz_web.app import data_model
@@ -28,7 +27,8 @@ class RepresentationSinkNode(SinkNode):
     (``sink.outline``, ``sink.slice``, ...).
 
     ``consume`` runs on the executor's worker thread. It only converts the
-    numpy payload to a ``vtkImageData`` there; applying it to the actors and
+    numpy payload to VTK data there (``Representation.to_vtk``, then
+    ``prepare``); applying it to the actors and
     updating trame state happens in ``apply``, which the ``dispatch`` callable
     schedules on the application's event loop.
     """
@@ -62,21 +62,23 @@ class RepresentationSinkNode(SinkNode):
     def consume(self, inputs: dict[str, PortData]) -> bool:
         data = inputs[INPUT_PORT]
         try:
-            image = convert.to_vtk_image(data.payload)
+            image = self.representation.to_vtk(data.payload)
+            prepared = self.representation.prepare(image)
         except Exception:
             logger.exception("Cannot display the output feeding '{}'", self.label)
             return False
 
-        self._dispatch(lambda: self.apply(image))
+        self._dispatch(lambda: self.apply(image, prepared))
         return True
 
-    def apply(self, image):
-        """Push a converted image into the VTK representation. Runs on the
-        application's event loop."""
+    def apply(self, image, prepared=None):
+        """Push a converted image (and what the representation prepared on
+        the worker) into the VTK representation. Runs on the application's
+        event loop."""
         first_data = not self._has_data
         self._has_data = True
 
-        self.representation.set_input(image)
+        self.representation.set_input(image, prepared)
         # Settings made before any data (a loaded state) live only in the
         # model: assert them on the representation, then read the derived
         # values (extents, ranges) back.

@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 from tomviz_pipeline.dataset import Dataset
 from vtkmodules.util.numpy_support import numpy_to_vtk
 from vtkmodules.vtkCommonDataModel import vtkImageData
@@ -71,3 +72,21 @@ def test_multi_component_arrays_become_luminance():
     assert luma.shape == (3, 2, 1)
     assert luma.dtype == np.uint8
     assert luma.flat[0] == round(0.299 * 255)
+
+
+def test_molecules_become_vtk_molecules():
+    from tomviz_pipeline.molecule import Molecule
+
+    molecule = Molecule(
+        atomic_numbers=[8, 1, 1],
+        positions=[[0, 0, 0], [0.96, 0, 0], [-0.24, 0.93, 0]],
+        bonds=[[0, 1], [0, 2]],
+        bond_orders=[1, 2],
+    )
+    result = convert.to_vtk_molecule(molecule)
+    assert (result.GetNumberOfAtoms(), result.GetNumberOfBonds()) == (3, 2)
+    assert [result.GetAtom(i).GetAtomicNumber() for i in range(3)] == [8, 1, 1]
+    assert result.GetAtom(1).GetPosition() == pytest.approx((0.96, 0, 0))
+    bond = result.GetBond(1)
+    assert (bond.GetBeginAtomId(), bond.GetEndAtomId(), bond.GetOrder()) == (0, 2, 2)
+    assert convert.to_vtk_molecule(Molecule()).GetNumberOfAtoms() == 0
