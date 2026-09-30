@@ -52,3 +52,9 @@
 .tomviz-drawer__properties > .v-card {
   min-height: 120px;
 }
+
+/* The desktop's label map icon is black line art (the pipeline widget
+   tints it with the text color); light on a dark theme. */
+.v-theme--dark img[src$="/representations/labelmap.svg"] {
+  filter: invert(1);
+}

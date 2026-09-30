@@ -40,7 +40,7 @@ class RepresentationType(Enum):
     MOLECULE = ("molecule.svg", "Molecule", "sink.molecule", MOLECULE_PORT_TYPES)
     OUTLINE = ("outline.svg", "Outline", "sink.outline", IMAGE_PORT_TYPES)
     RULER = ("ruler.svg", "Ruler", "sink.ruler", IMAGE_PORT_TYPES)
-    SCALE_CUBE = ("scale-cube.svg", "Scale Cube", "sink.scaleCube", IMAGE_PORT_TYPES)
+    SCALE_CUBE = ("scale-cube.png", "Scale Cube", "sink.scaleCube", IMAGE_PORT_TYPES)
     SLICE = ("slice.svg", "Slice", "sink.slice", IMAGE_PORT_TYPES)
     THRESHOLD = ("threshold.svg", "Threshold", "sink.threshold", IMAGE_PORT_TYPES)
     VOLUME = ("volume.png", "Volume", "sink.volume", IMAGE_PORT_TYPES)
