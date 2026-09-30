@@ -2156,7 +2156,7 @@ wheels = [
 
 [[package]]
 name = "tomviz-pipeline"
-version = "3.1.6"
+version = "3.1.8"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
@@ -2165,9 +2165,9 @@ dependencies = [
     { name = "numpy", version = "2.5.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "tqdm" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/87/96/f4ad8c51f710dd66fab3d09f00aab4ae25287e52a302df8c900dac4edcfd/tomviz_pipeline-3.1.6.tar.gz", hash = "sha256:4125e9e52094b1dbdbd52c7985a82e3111740e514a335519543dd97f1e0dd055", size = 165562, upload-time = "2026-09-09T23:39:25.37Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/28/09/8f294c1c74a43c5c1c33086167b86fa083f345ec45a8bfc3a5a64a5b0cda/tomviz_pipeline-3.1.8.tar.gz", hash = "sha256:4b2f4093d5bda6449903fb5ac8d2159fb5c646f7c963bec17453d80ab51bd909", size = 166976, upload-time = "2026-09-30T00:31:16.266Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/12/a7/6734aad353e7430c7d3199f8c47dbdd2afa5ed9cbb92b679f28511ea534f/tomviz_pipeline-3.1.6-py3-none-any.whl", hash = "sha256:a001d93ba5b28c1c7c932cd07eed4300d5a29fca8b7ca76075743abc18de2eca", size = 138768, upload-time = "2026-09-09T23:39:23.828Z" },
+    { url = "https://files.pythonhosted.org/packages/ff/1d/b04482d8e28e1caa8d044dbcbf8a0ac4210da1035c4f1d59bac9174fbcd1/tomviz_pipeline-3.1.8-py3-none-any.whl", hash = "sha256:02d5155c155adbd6aafd9783c9404af5319d1e47f68a9c2ca155c3d31a929af9", size = 139304, upload-time = "2026-09-30T00:31:14.899Z" },
 ]
 
 [[package]]
@@ -2213,7 +2213,7 @@ requires-dist = [
     { name = "ruff", marker = "extra == 'dev'" },
     { name = "scipy", specifier = ">=1.17.1" },
     { name = "tomviz-kernels", specifier = ">=3.2.0" },
-    { name = "tomviz-pipeline", specifier = ">=3.1.6" },
+    { name = "tomviz-pipeline", specifier = ">=3.1.8" },
     { name = "trame", specifier = ">=3.12" },
     { name = "trame-color-opacity-editor" },
     { name = "trame-colormaps", specifier = ">=1.5" },
