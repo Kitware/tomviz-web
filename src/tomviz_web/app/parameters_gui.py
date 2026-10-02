@@ -1,11 +1,17 @@
 """Parameter models and panels generated from a catalog entry's JSON
-``parameters`` list: one ``StateDataModel`` subclass per entry name (one
-synced field per parameter) and the Vuetify HTML that edits it."""
+``parameters`` list: one ``StateDataModel`` subclass per entry name and
+parameter list (one synced field per parameter) and the Vuetify HTML that
+edits it."""
+
+import json
 
 from loguru import logger
 from trame.app import dataclass
 from trame.widgets import vuetify3 as v3
 
+# (entry name, parameters as JSON) -> generated class. The parameters are
+# part of the key: a definition edited in the transform editor declares
+# other fields under the same name.
 PARAMETERS_MODEL_CLASSES = {}
 
 
@@ -186,7 +192,7 @@ def gui_scalars(parameter):
 PATH_TYPES = {"file", "save_file", "directory"}
 # Types without an entry have no control and no field. "dataset" is one on
 # purpose: like in the desktop app, such a parameter is an input port of the
-# node (LegacyPythonTransform adds it), linked in the pipeline.
+# node (the library adds it), linked in the pipeline.
 TYPE_MAPPING = {
     "bool": gui_bool,
     "int": gui_number,
@@ -263,7 +269,8 @@ def to_param(name, param):
 def parameters_model_class(meta):
     name = meta.get("name")
     parameters = meta.get("parameters", [])
-    klass = PARAMETERS_MODEL_CLASSES.get(name)
+    key = (name, json.dumps(parameters, sort_keys=True))
+    klass = PARAMETERS_MODEL_CLASSES.get(key)
 
     if klass:
         return klass
@@ -294,7 +301,7 @@ def parameters_model_class(meta):
     # Create class
     klass = type(name, (dataclass.StateDataModel,), namespace)
     _ensure_field_registries(klass)
-    PARAMETERS_MODEL_CLASSES[name] = klass
+    PARAMETERS_MODEL_CLASSES[key] = klass
     return klass
 
 

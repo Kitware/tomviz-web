@@ -65,7 +65,7 @@ async def run_session(volume_file, other_file, tilt_series_file):
         # Like the desktop reader: no tilt angles, a Volume.
         assert manager.tip_port.port_type == "Volume"
 
-        # A v1 script, hosted by LegacyPythonTransform.
+        # A v1 script, hosted by LegacyScriptableTransformNode.
         blur = data_model.get_instance(
             manager.add_transform("GaussianFilter", parameters={"sigma": 1.0})
         )
@@ -75,7 +75,7 @@ async def run_session(volume_file, other_file, tilt_series_file):
         assert blurred.shape == SHAPE
         assert not np.allclose(blurred, ramp())
 
-        # A schema-v2 kernel, hosted by PythonNode.
+        # A schema-v2 kernel, hosted by ScriptableTransformNode.
         invert = data_model.get_instance(manager.add_transform("InvertData"))
         await wait_idle(manager)
         assert invert.state == "Current"

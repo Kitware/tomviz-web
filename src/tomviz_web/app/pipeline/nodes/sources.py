@@ -2,8 +2,8 @@
 
 A catalog source is a schema-v2 kernel whose description declares no
 ``inputs``: the script defines a ``SourceNode`` (``SourceKernel``) subclass,
-and the library's ``PythonNode`` hosts it as a ``PythonSource``. Like a file
-reader, it starts a pipeline.
+and the library's ``ScriptableNode`` hosts it as a ``ScriptableSourceNode``.
+Like a file reader, it starts a pipeline.
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from tomviz_pipeline import PythonNode, SourceNode
+from tomviz_pipeline import ScriptableNode, SourceNode
 
 
 def build_source_node(
@@ -21,13 +21,4 @@ def build_source_node(
 ) -> SourceNode:
     """Create the source node for a catalog entry. ``parameters`` override
     the description's defaults."""
-    node = PythonNode(description, kernel=Path(script_path))
-
-    if parameters:
-        # Write into the store directly: the node is not in a graph yet, so
-        # there is nothing to mark stale or re-execute.
-        node._parameter_store().update(parameters)
-
-    if not node.label:
-        node.label = description.get("label") or description.get("name", "")
-    return node
+    return ScriptableNode(description, kernel=Path(script_path), parameters=parameters)

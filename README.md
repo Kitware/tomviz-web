@@ -21,6 +21,9 @@ uv pip install .
 Run the application
 
 ```sh
+tomviz-web --server
+
+# Or by running the module
 python -m tomviz_web --server
 ```
 

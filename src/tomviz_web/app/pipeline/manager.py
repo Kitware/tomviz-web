@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import functools
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 
 from loguru import logger
@@ -38,6 +39,19 @@ from tomviz_web.app.pipeline.representations import RepresentationType
 from tomviz_web.app.pipeline.state import STATE_EXTENSIONS, load_state_file
 
 
+@dataclass
+class PendingNode:
+    """A new node held by a breakpoint until the transform editor confirms
+    it (desktop parity): ``rollback`` undoes what made it pending,
+    ``commit`` finishes setting it up once confirmed (a source's default
+    visualizations), and ``breakpoint`` is the node's own breakpoint, put
+    back on release."""
+
+    rollback: Callable[[], None]
+    breakpoint: bool
+    commit: Callable[[], None] | None = None
+
+
 class PipelineManager(TrameComponent):
     """Owns the tomviz_pipeline graph and mirrors it into the trame data model.
 
@@ -61,6 +75,14 @@ class PipelineManager(TrameComponent):
     links the tip to the transform and moves the sinks and groups reading the
     tip to the transform's output; ``add_sink`` joins the group already on
     the tip or creates one.
+
+    A new catalog node waits for the user before it runs: ``add_transform``
+    and ``add_source`` with ``pending`` hold it with a breakpoint (a node
+    with inputs left to link, once ``create_link`` links the last one), the
+    editor's Apply/OK call ``commit_pending`` and run, and its Cancel calls
+    ``cancel_pending``, which removes the inserted node (or that last link)
+    and puts the graph back as it was, without re-running anything. A
+    pending source gets its default visualizations on confirmation.
 
     UI side: ``model`` (a ``PipelineModel``) holds one ``NodeModel`` per graph
     node; ``node_models`` indexes them by node id. Every node carries one
@@ -86,6 +108,10 @@ class PipelineManager(TrameComponent):
         self.pipeline: Pipeline | None = None
 
         self.node_models: dict[int, data_model.NodeModel] = {}  # node.id -> model
+        self._pending: dict[int, PendingNode] = {}  # node.id -> held node
+        # New nodes added pending whose inputs are not all linked yet:
+        # linking the last one holds them.
+        self._awaiting_links: set[int] = set()
         self.views = {}  # view_id -> ui.RenderWindow
 
         self.tip_port: OutputPort | None = None
@@ -216,6 +242,8 @@ class PipelineManager(TrameComponent):
             self._untrack(model)
         self.model.active_node = []
         self._selected_node = None
+        self._pending.clear()
+        self._awaiting_links.clear()
         self.set_tip_port(None)
         self.pipeline.clear()
 
@@ -301,8 +329,9 @@ class PipelineManager(TrameComponent):
 
     def _track(self, model: data_model.NodeModel):
         """Register a model whose node is already in the graph and linked:
-        mirror its ports, pull its state, and follow its signals. Consumers
-        tracked earlier get their ``link`` resolved now."""
+        mirror its ports, pull its state (and a catalog node's script and
+        definition), and follow its signals. Consumers tracked earlier get
+        their ``link`` resolved now."""
         node = model.node
         if not model.outputs:
             model.outputs = [
@@ -313,6 +342,8 @@ class PipelineManager(TrameComponent):
                 self._create_input_model(model, port) for port in node.input_ports()
             ]
         model.pull_state()
+        if isinstance(model, data_model.DataNodeModel):
+            model.pull_definition()
         self._connect_node(model)
         self.node_models[node.id] = model
         self.model.add(model)
@@ -500,13 +531,16 @@ class PipelineManager(TrameComponent):
         meta: dict | None = None,
         parameters: dict | None = None,
         execute: bool = True,
+        pending: bool = False,
         **_,
     ) -> str | None:
         """Start a pipeline with the catalog source ``entry_name`` (a
         schema-v2 kernel without inputs), like loading a file does: it
         becomes the tip, gets the default visualizations and the selection.
-        Its parameters are edited in the panel afterwards. Returns the id of
-        the new model."""
+        Its parameters are edited in the panel afterwards. With ``pending``
+        it is held for the editor instead of run, and gets its
+        visualizations once confirmed (see ``is_pending``). Returns the id
+        of the new model."""
         entry = self.ctx.catalog.entries.get(entry_name)
         if entry is None:
             logger.error("Unknown catalog entry '{}'", entry_name)
@@ -526,18 +560,42 @@ class PipelineManager(TrameComponent):
             parameters=to_parameters_model(self.server, description),
         )
         source.bind_parameters()
-        return self._add_source_model(source, execute=execute)
+        if not pending:
+            return self._add_source_model(source, execute=execute)
+
+        selection = list(self.model.active_node)
+        self._add_source_model(source, execute=False, visualize=False)
+        self._hold(
+            source,
+            functools.partial(self._undo_source, source, selection),
+            commit=functools.partial(self._visualize_source, source),
+        )
+        return source._id
+
+    def _undo_source(self, source, selection):
+        """Cancel a pending ``add_source``."""
+        self.remove_node(source._id)
+        self.model.active_node = selection
+
+    def _visualize_source(self, source):
+        if self.state.active_view_id:
+            self.add_default_sinks(
+                self.state.active_view_id, target=source.primary_output
+            )
 
     def _add_source_model(
-        self, source: data_model.SourceNodeModel, execute: bool = True
+        self,
+        source: data_model.SourceNodeModel,
+        execute: bool = True,
+        visualize: bool = True,
     ) -> str:
         """Mirror a source already in the graph, make its output the tip with
         the default visualizations, and select it."""
         self._track(source)
         self.set_tip_port(source.primary_output)
 
-        if self.state.active_view_id:
-            self.add_default_sinks(self.state.active_view_id)
+        if visualize:
+            self._visualize_source(source)
 
         # make new data node active by default
         self.model.active_node = [source._id]
@@ -672,6 +730,7 @@ class PipelineManager(TrameComponent):
         parameters: dict | None = None,
         execute: bool = True,
         target: OutputPort | None = None,
+        pending: bool = False,
         **_,
     ) -> str | None:
         """Append the catalog transform ``entry_name`` at ``target`` (default:
@@ -681,8 +740,10 @@ class PipelineManager(TrameComponent):
         branches. The new node becomes the selection. Only its first input is
         linked: a transform with more inputs (a ``dataset`` parameter, a
         schema-v2 kernel's extra ``inputs``) waits for the user to link them,
-        and ``create_link`` runs it then (desktop parity). Returns the id of
-        the new model."""
+        and ``create_link`` runs it then (desktop parity). With ``pending``,
+        a transform whose inputs are all linked is held for the editor
+        instead of run (see ``is_pending``). Returns the id of the new
+        model."""
         entry = self.ctx.catalog.entries.get(entry_name)
         if entry is None:
             logger.error("Unknown catalog entry '{}'", entry_name)
@@ -705,9 +766,14 @@ class PipelineManager(TrameComponent):
             logger.error("'{}' does not accept {} data", entry.name, target.port_type)
             return None
 
+        # What a cancel restores: the selection, and the state of everything
+        # the insertion marks stale.
+        selection = list(self.model.active_node)
+        states = {n: n.state for n in graph.downstream_closure(target.node)}
+
         self.pipeline.add_node(node)
         self.pipeline.create_link(target, input_port)
-        self._move_terminal_consumers(target, node)
+        moved = self._move_terminal_consumers(target, node)
 
         parent = self.node_models.get(target.node.id) if target.node else None
         model = data_model.TransformNodeModel(
@@ -732,15 +798,39 @@ class PipelineManager(TrameComponent):
                 node.label,
                 ", ".join(unlinked),
             )
+            if pending:
+                self._awaiting_links.add(node.id)
+        elif pending:
+            self._hold(
+                model,
+                functools.partial(
+                    self._undo_insertion, model, target, moved, states, selection
+                ),
+            )
         elif execute:
             self.execute_when_idle()
 
         return model._id
 
+    def _undo_insertion(self, model, target, moved, states, selection):
+        """Cancel a pending ``add_transform``: the graph as it was before."""
+        # The sinks and groups go back to the port they read first, so they
+        # never lose their input and keep showing its data.
+        for to_port in moved:
+            if to_port.link is not None:
+                self.pipeline.remove_link(to_port.link)
+            self.pipeline.create_link(target, to_port)
+        self.remove_node(model._id)
+        # Relinking marked them stale, though nothing they read changed.
+        for node, state in states.items():
+            if node in self.pipeline.nodes:
+                node.state = state
+        self.model.active_node = selection
+
     def _move_terminal_consumers(self, target: OutputPort, node: Node):
         """Move every sink and group reading ``target`` to the first output
         of ``node`` that accepts it (desktop parity: transforms downstream of
-        ``target`` keep reading it)."""
+        ``target`` keep reading it). Returns the input ports moved."""
         moves = []
         for link in list(target.outgoing_links):
             consumer = link.to_port.node
@@ -753,14 +843,69 @@ class PipelineManager(TrameComponent):
             to_port = link.to_port
             self.pipeline.remove_link(link)
             self.pipeline.create_link(new_output, to_port)
+        return [link.to_port for link, _ in moves]
+
+    # -------------------------------------------------------------------------
+    # Nodes waiting for the editor
+    # -------------------------------------------------------------------------
+
+    def _hold(
+        self,
+        model: data_model.NodeModel,
+        rollback: Callable[[], None],
+        commit: Callable[[], None] | None = None,
+    ):
+        """Keep ``model``'s node from running until ``commit_pending``."""
+        node = model.node
+        self._pending[node.id] = PendingNode(rollback, node.breakpoint, commit)
+        node.breakpoint = True
+        model.pull_state()
+
+    def is_pending(self, model_id: str) -> bool:
+        """Whether the node of model ``model_id`` waits for the editor."""
+        model = data_model.get_instance(model_id)
+        node = getattr(model, "node", None)
+        return node is not None and node.id in self._pending
+
+    def commit_pending(self, model_id: str) -> bool:
+        """The editor confirmed the node: release it. The caller runs the
+        graph. Returns whether the node was pending."""
+        model = data_model.get_instance(model_id)
+        node = getattr(model, "node", None)
+        pending = self._pending.pop(node.id, None) if node is not None else None
+        if pending is None:
+            return False
+        self._awaiting_links.discard(node.id)
+        node.breakpoint = pending.breakpoint
+        model.pull_state()
+        if pending.commit is not None:
+            pending.commit()
+        return True
+
+    def cancel_pending(self, model_id: str) -> bool:
+        """The editor was canceled: undo the insertion (or link) that made
+        the node pending. Returns whether the node was pending."""
+        model = data_model.get_instance(model_id)
+        node = getattr(model, "node", None)
+        pending = self._pending.pop(node.id, None) if node is not None else None
+        if pending is None:
+            return False
+        node.breakpoint = pending.breakpoint
+        model.pull_state()
+        pending.rollback()
+        return True
 
     # -------------------------------------------------------------------------
     # Sinks
     # -------------------------------------------------------------------------
 
-    def add_default_sinks(self, view_id: str):
-        self.add_sink(view_id, RepresentationType.OUTLINE.name, execute=False)
-        self.add_sink(view_id, RepresentationType.SLICE.name, execute=False)
+    def add_default_sinks(self, view_id: str, target: OutputPort | None = None):
+        self.add_sink(
+            view_id, RepresentationType.OUTLINE.name, execute=False, target=target
+        )
+        self.add_sink(
+            view_id, RepresentationType.SLICE.name, execute=False, target=target
+        )
 
     def add_sink(
         self,
@@ -865,6 +1010,8 @@ class PipelineManager(TrameComponent):
             return True
 
         node = model.node
+        self._pending.pop(node.id, None)
+        self._awaiting_links.discard(node.id)
         owned_tip = self._forget_node(node)
         unbind = getattr(model, "unbind_parameters", None)
         if unbind is not None:
@@ -925,7 +1072,15 @@ class PipelineManager(TrameComponent):
             return False
         self._refresh_sink_sources()
         if all(p.link is not None for p in to_port.node.input_ports()):
-            self.execute()
+            consumer = self.node_models.get(to_port.node.id)
+            if consumer is not None and to_port.node.id in self._awaiting_links:
+                # A new node just got its last input (desktop parity): it
+                # waits for the editor, whose Cancel removes this link.
+                self._hold(
+                    consumer, functools.partial(self.remove_link, input_model._id)
+                )
+            else:
+                self.execute()
         return True
 
     def set_port_persistence(self, port_id: str, choice: str):

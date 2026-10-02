@@ -116,19 +116,28 @@ async def run_session():
         assert state.tip_port_id == particles.outputs[0]._id
         assert invert.input is constant
 
-        # ---- the drawer's add button sends a source to add_source
+        # ---- the drawer's add button sends a source to add_source, held
+        # until its editor is confirmed
         item = next(
             i
             for i in catalog_items(app.ctx.catalog.root)
             if i.name == "ConstantDataset"
         )
-        TransformSelection.add_entry(SimpleNamespace(ctx=app.ctx), item._id)
+        drawer = SimpleNamespace(ctx=app.ctx, state=app.state, ctrl=app.ctrl)
+        TransformSelection.add_entry(drawer, item._id)
         await wait_idle(manager)
         sources = [
             m for m in manager.model.nodes if isinstance(m, data_model.SourceNodeModel)
         ]
         assert len(sources) == 3
         assert sources[-1].entry_name == "ConstantDataset"
+        assert manager.is_pending(sources[-1]._id)
+        assert sources[-1].state == "New"
+        editor = app.ctx.transform_editor
+        assert editor.editor.show
+        assert editor.editor.transform_id == sources[-1]._id
+        editor.ok()
+        await wait_idle(manager)
         assert sources[-1].state == "Current"
     finally:
         await stop(app, serve)

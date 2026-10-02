@@ -148,10 +148,19 @@ class TransformSelection(html.Div):
         goes at the tip."""
         item = data_model.get_instance(item_id)
         entry = self.ctx.catalog.entries.get(item.name)
+        # Held until the editor confirms it (desktop parity); a transform
+        # with inputs left to link gets its editor once they are.
         if entry is not None and entry.is_source:
-            self.ctx.pipeline.add_source(item.name, icon=item.icon, meta=item.meta)
+            model_id = self.ctx.pipeline.add_source(
+                item.name, icon=item.icon, meta=item.meta, pending=True
+            )
         else:
-            self.ctx.pipeline.add_transform(item.name, icon=item.icon, meta=item.meta)
+            model_id = self.ctx.pipeline.add_transform(
+                item.name, icon=item.icon, meta=item.meta, pending=True
+            )
+        self.state.select_transform = False
+        if model_id and self.ctx.pipeline.is_pending(model_id):
+            self.ctrl.open_transform_editor(model_id)
 
     @change("transform_activated")
     def _on_active(self, transform_activated, **_):

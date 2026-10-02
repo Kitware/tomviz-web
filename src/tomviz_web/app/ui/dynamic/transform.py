@@ -21,8 +21,24 @@ class TransformUI(DivLayout):
             html.Div(classes="pa-2"),
             dataclass.Provider(name="transform", instance=("active_data_id",)),
         ):
+            html.Div(
+                "{{ transform.definition.description }}",
+                classes="text-body-2 mb-4",
+                style="white-space: pre-wrap;",
+            )
             dataclass.Gui(instance=("transform.parameters._id",))
             with html.Div(classes="d-flex ga-2 mt-1"):
+                v3.VBtn(
+                    "Configure",
+                    prepend_icon="mdi-cog-outline",
+                    classes="text-none",
+                    density="compact",
+                    variant="text",
+                    click=(
+                        self.server.controller.open_transform_editor,
+                        "[transform._id]",
+                    ),
+                )
                 v3.VSpacer()
                 v3.VBtn(
                     "Reset",

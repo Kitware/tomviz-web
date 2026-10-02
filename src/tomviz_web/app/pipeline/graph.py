@@ -25,6 +25,7 @@ from tomviz_web.app.utils.data import IMAGE_PORT_TYPES
 __all__ = [
     "compatible_output",
     "data_port_of",
+    "downstream_closure",
     "find_branch_tip",
     "find_tip_output_port",
     "group_output_for",
@@ -64,6 +65,19 @@ def data_port_of(port: OutputPort | None) -> OutputPort | None:
         if seen > 100:  # a cycle cannot exist, but never loop forever
             return None
     return port
+
+
+def downstream_closure(node: Node) -> list[Node]:
+    """``node`` and every node it feeds, directly or not: the nodes
+    ``Node.mark_stale`` cascades over."""
+    found = {id(node): node}
+    stack = [node]
+    while stack:
+        for downstream in stack.pop().downstream_nodes():
+            if id(downstream) not in found:
+                found[id(downstream)] = downstream
+                stack.append(downstream)
+    return list(found.values())
 
 
 def primary_upstream(node: Node) -> OutputPort | None:

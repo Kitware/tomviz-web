@@ -63,13 +63,13 @@ const inputDim = (input: InputPortData) =>
 const memberDim = (member: NodeData) => props.bright !== null && !props.bright.nodes.has(member._id)
 
 function inputColor(input: InputPortData) {
-  const type = input.link ? input.link.port_type : input.accepted_types[0]
+  const type = input.link ? input.link.port_type : input?.accepted_types?.[0] || "Unknown"
   const color = portTypeColor(type)
   return css(input._id === props.selectedLinkId ? invertColor(color) : color)
 }
 
 function inputTitle(input: InputPortData) {
-  const base = `Input port: ${input.name} (${input.accepted_types.join(', ')})`
+  const base = `Input port: ${input.name} (${input?.accepted_types?.join(', ')})`
   return input.link && input.link_valid === false
     ? `${base}: does not accept ${input.link.port_type}`
     : base

@@ -54,7 +54,7 @@ const memberDim = (member: NodeData) => props.bright !== null && !props.bright.n
 const node = computed(() => props.geometry.node)
 const kind = computed(() => nodeKind(node.value))
 const color = computed(() => css(badgeColor(kind.value)))
-const hasOutputs = computed(() => node.value.outputs.length > 0)
+const hasOutputs = computed(() => node.value?.outputs?.length > 0)
 const showBreakpoint = computed(() => canHaveBreakpoint(node.value))
 const running = computed(() => node.value.exec_state === 'Running')
 const progress = computed(() => {

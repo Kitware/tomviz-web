@@ -11,8 +11,13 @@ and transforms); what the UI shows about the data itself lives on their
 
 from __future__ import annotations
 
-from tomviz_pipeline import Node, OutputPort
+import json
+
+from loguru import logger
+from tomviz_pipeline import Node, OutputPort, ScriptableNode
 from trame.app.dataclass import ServerOnly, StateDataModel, Sync
+
+from tomviz_web.app.parameters_gui import to_parameters_model
 
 
 def coerce_like(reference, value):
@@ -89,6 +94,14 @@ class NodeModel(StateDataModel):
         return None
 
 
+def _parameter_types(definition: dict) -> dict:
+    """Parameter name -> declared type in a definition."""
+    return {
+        param.get("name"): param.get("type")
+        for param in definition.get("parameters") or []
+    }
+
+
 class DataNodeModel(NodeModel):
     """A node that produces data: sources and transforms. The first output
     is the primary one sinks and downstream nodes read by default.
@@ -101,11 +114,17 @@ class DataNodeModel(NodeModel):
     calls ``apply_parameters``, which pushes them with ``set_parameters``
     (re-executing the graph), and Reset calls ``reset_parameters``. A file
     reader has none.
+
+    A scriptable node (``tomviz_pipeline.ScriptableNode``: every catalog
+    node) also mirrors its ``definition`` (the JSON description).
+    ``apply_edits`` replaces the node's definition and script, as the
+    transform editor's Apply does.
     """
 
     entry_name = Sync(str)
     parameters = Sync(StateDataModel, has_dataclass=True)
     parameters_dirty = Sync(bool, False)  # the mirror differs from the node
+    definition = Sync(dict, dict)
 
     def __init__(self, server, **kwargs):
         self._parameter_names: list[str] = []
@@ -154,13 +173,14 @@ class DataNodeModel(NodeModel):
         # in the panel would re-execute the graph on every keystroke.
         self.parameters_dirty = bool(self._pending_parameters())
 
-    def apply_parameters(self):
+    def apply_parameters(self) -> bool:
         """Push the edited parameters to the node (which re-executes the
-        graph through ``auto_execute``)."""
+        graph through ``auto_execute``). Returns whether any changed."""
         changed = self._pending_parameters()
         if changed:
             self.node.set_parameters(**changed)
         self.parameters_dirty = False
+        return bool(changed)
 
     def reset_parameters(self):
         """Drop the edits: copy the node's values back into the mirror."""
@@ -172,6 +192,65 @@ class DataNodeModel(NodeModel):
                 self.parameters, name, coerce_like(current, self.node.parameters[name])
             )
         self.parameters_dirty = False
+
+    def pull_definition(self):
+        """Copy the node's definition into ``definition``."""
+        node = self.node
+        if not isinstance(node, ScriptableNode):
+            return
+        try:
+            self.definition = json.loads(node.json_description or "{}")
+        except ValueError:
+            logger.error("'{}' has a definition that is not JSON", node.label)
+            self.definition = {}
+
+    def apply_edits(self, definition: dict, script: str) -> list[str]:
+        """Give the node a new ``definition`` and ``script``, and rebuild
+        ``parameters`` when the declared parameters changed; unapplied
+        panel values carry over to parameters that kept their type. Nothing
+        runs: the node is marked stale, and the caller applies the panel
+        (``apply_parameters``) or re-executes. Returns the names of the
+        parameters whose values went back to their defaults. Raises
+        ``ValueError``, leaving the node untouched, when the definition
+        cannot apply to an existing node (it changes the schema or ports)."""
+        node = self.node
+        if not isinstance(node, ScriptableNode):
+            return []
+        current = json.loads(node.json_description or "{}")
+
+        # Build the new panel first: an unusable parameter type raises
+        # before the node changes.
+        parameters = None
+        if (definition.get("name"), definition.get("parameters")) != (
+            current.get("name"),
+            current.get("parameters"),
+        ):
+            parameters = to_parameters_model(
+                self.server,
+                {
+                    "name": definition.get("name") or self.entry_name or "Parameters",
+                    "parameters": definition.get("parameters") or [],
+                },
+            )
+
+        reset = []
+        if definition != current:
+            reset = node.reconfigure_description(json.dumps(definition))
+        if script != node.script:
+            node.script = script
+        self.definition = definition
+
+        if parameters is not None:
+            pending = self._pending_parameters()
+            before, after = _parameter_types(current), _parameter_types(definition)
+            self.unbind_parameters()
+            self.parameters = parameters
+            self.bind_parameters()
+            for name, value in pending.items():
+                if name in self._parameter_names and before[name] == after[name]:
+                    setattr(self.parameters, name, value)
+            self.parameters_dirty = bool(self._pending_parameters())
+        return reset
 
     @property
     def primary_output(self) -> OutputPort | None:

@@ -10,6 +10,7 @@ from . import (
     render_view,
     settings,
     toolbar,
+    transform_editor,
     utils,
 )
 from .color_opacity import ColorOpacityEditor
@@ -22,6 +23,7 @@ from .open_data import FileLoader
 from .render_view import RenderWindow
 from .settings import SettingsDialog
 from .toolbar import Toolbar
+from .transform_editor import TransformEditorDialog
 from .utils import toolbar_btn
 
 
@@ -37,6 +39,7 @@ def reload(m=None):
         render_view,
         settings,
         toolbar,
+        transform_editor,
         utils,
     )
 
@@ -53,6 +56,7 @@ __all__ = [
     "RenderWindow",
     "SettingsDialog",
     "Toolbar",
+    "TransformEditorDialog",
     "TransformSelection",
     "initialize_dynamic_ui",
     "toolbar_btn",

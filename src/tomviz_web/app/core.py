@@ -81,6 +81,7 @@ class Tomviz(TrameApp):
             # Dialogs
             ui.FileLoader()
             ui.SettingsDialog()
+            ui.TransformEditorDialog()
 
             # Toolbar
             ui.Toolbar()

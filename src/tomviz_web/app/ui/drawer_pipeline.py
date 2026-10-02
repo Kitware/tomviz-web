@@ -4,6 +4,7 @@ widget and its context menu. The widget renders the ``PipelineModel``; its
 events either write the models directly (selection, expansion, visibility)
 or call the manager."""
 
+from trame.app.dataclass import get_instance
 from trame.widgets import html
 from trame.widgets import vuetify3 as v3
 
@@ -72,7 +73,7 @@ class PipelineSection(html.Div):
                             toggle_breakpoint=(self.toggle_breakpoint, "[$event._id]"),
                             leave_group=(self.ctx.pipeline.leave_group, "[$event._id]"),
                             link_request=(
-                                self.ctx.pipeline.create_link,
+                                self.link,
                                 "[$event.output._id, $event.input._id]",
                             ),
                             contextmenu=(
@@ -194,3 +195,12 @@ class PipelineSection(html.Div):
 
     def toggle_breakpoint(self, node_id):
         self.ctx.pipeline.toggle_breakpoint(node_id)
+
+    def link(self, output_id, input_id):
+        """Drag-to-link. A new node that just got its last input waits for
+        the editor (desktop parity): open it."""
+        if not self.ctx.pipeline.create_link(output_id, input_id):
+            return
+        consumer = get_instance(input_id).node
+        if self.ctx.pipeline.is_pending(consumer._id):
+            self.ctrl.open_transform_editor(consumer._id)

@@ -6,18 +6,19 @@ authors = [
     {name = "Kitware Inc"},
 ]
 dependencies = [
-    "trame>=3.12",
+    "trame>=4",
     "trame-vuetify",
     "trame-vtk",
-    "trame-dataclass>=2.1.3",
+    "trame-dataclass>=2.2.1",
     "trame-dockview>=2",
     "trame-color-opacity-editor",
-    "trame-colormaps>=1.5",
+    "trame-colormaps>=1.7.2",
     "loguru",
     "vtk>=9.7",
-    "tomviz-pipeline>=3.1.6",
+    "tomviz-pipeline>=3.2.0",
     "tomviz-kernels>=3.2.0",
     "scipy>=1.17.1",
+    "trame-code>=1.1.1",
 ]
 requires-python = ">=3.11"
 readme = "README.md"
@@ -45,6 +46,10 @@ dev = [
     "pytest-cov >=3",
     "nox",
 ]
+
+[project.scripts]
+tomviz-web = "tomviz_web.app.main:main"
+
 
 [build-system]
 requires = ["hatchling"]

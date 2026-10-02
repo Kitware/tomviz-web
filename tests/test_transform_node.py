@@ -5,7 +5,9 @@ import pytest
 import tomviz_kernels
 from tomviz_pipeline import NodeState, Pipeline, PortData, SinkNode, SourceNode
 from tomviz_pipeline.dataset import Dataset
-from tomviz_pipeline.nodes.transforms.legacy_python import LegacyPythonTransform
+from tomviz_pipeline.nodes.transforms.legacy_scriptable import (
+    LegacyScriptableTransformNode,
+)
 from trame.app import get_server
 from trame.ui.html import DivLayout
 
@@ -64,7 +66,7 @@ def test_build_transform_node_from_a_v1_script(gaussian):
     description, script = gaussian
     node = build_transform_node(description, script, {"sigma": 0.0})
 
-    assert isinstance(node, LegacyPythonTransform)
+    assert isinstance(node, LegacyScriptableTransformNode)
     assert node.type_name == "transform.legacyPython"
     assert node.label == "Gaussian Blur"
     assert node.parameter("sigma") == 0.0

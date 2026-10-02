@@ -24,6 +24,7 @@ export const PORT_TYPE_COLORS: Record<string, RGB> = {
   Table: { r: 0, g: 172, b: 172 },
   Molecule: { r: 194, g: 60, b: 108 },
   Image: { r: 120, g: 144, b: 56 },
+  Unknown: { r:200, g:200, b: 200 },
 }
 
 export const DEFAULT_COLOR: RGB = { r: 158, g: 158, b: 158 }
